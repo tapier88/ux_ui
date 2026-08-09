@@ -1,14 +1,11 @@
 ```
-# Python
+# Python cache files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Dependencies
-.venv/
-venv/
-env/
-.env
-.env.*
+# Compiled Python files in harness directory
+harness/__pycache__/
+harness/**/*.pyc
 ```
