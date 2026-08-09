@@ -42,6 +42,11 @@ htmlcov/
 .env.local
 .env.*
 
+# Runtime data: persistent checkpoints and cross-task memory.
+# This is generated at runtime, is per-environment, and can contain
+# client data — it must never be committed.
+harness/.data/
+
 # Editors / IDE
 .vscode/
 .idea/

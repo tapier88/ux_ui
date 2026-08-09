@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 import json
 import copy
+import uuid
 
 
 @dataclass
@@ -90,12 +91,23 @@ class TaskState:
         self.updated_at = datetime.utcnow().isoformat()
     
     def create_checkpoint(self, node_id: str) -> Checkpoint:
-        """Create a checkpoint of the current state"""
-        checkpoint_id = f"chk_{self.task_id}_{node_id}_{len(self.checkpoints)}"
+        """Create a checkpoint of the current state.
+
+        MED-007 fix: checkpoint IDs previously used a predictable
+        `chk_{task_id}_{node_id}_{index}` format where the index could
+        collide if the checkpoint list was ever trimmed/reset. A short
+        uuid suffix is appended to guarantee uniqueness while keeping the
+        id human-readable for debugging.
+        """
+        checkpoint_id = f"chk_{self.task_id}_{node_id}_{len(self.checkpoints)}_{uuid.uuid4().hex[:8]}"
         snapshot = {
             "outputs": copy.deepcopy(self.outputs),
             "metadata": copy.deepcopy(self.metadata),
-            "history": copy.deepcopy(self.history)
+            "history": copy.deepcopy(self.history),
+            "inputs": copy.deepcopy(self.inputs),
+            "current_node": self.current_node,
+            "status": self.status,
+            "errors": copy.deepcopy(self.errors),
         }
         checkpoint = Checkpoint(
             checkpoint_id=checkpoint_id,
@@ -108,10 +120,20 @@ class TaskState:
         return checkpoint
     
     def restore_from_checkpoint(self, checkpoint: Checkpoint):
-        """Restore state from a checkpoint"""
+        """Restore state from a checkpoint.
+
+        MED-003 fix: previously only outputs/metadata/history were
+        restored, silently leaving inputs/current_node/status/errors
+        stale and inconsistent with the rest of the restored state.
+        All snapshot fields are now restored.
+        """
         self.outputs = checkpoint.state_snapshot.get("outputs", {})
         self.metadata = checkpoint.state_snapshot.get("metadata", {})
         self.history = checkpoint.state_snapshot.get("history", [])
+        self.inputs = checkpoint.state_snapshot.get("inputs", self.inputs)
+        self.current_node = checkpoint.state_snapshot.get("current_node", self.current_node)
+        self.status = checkpoint.state_snapshot.get("status", self.status)
+        self.errors = checkpoint.state_snapshot.get("errors", self.errors)
         self.updated_at = datetime.utcnow().isoformat()
     
     def get_last_checkpoint(self) -> Optional[Checkpoint]:
@@ -122,12 +144,24 @@ class TaskState:
 
 
 class StateManager:
-    """Manages state for all tasks"""
-    
+    """Manages state for all tasks.
+
+    By default checkpoints are in-memory only, identical to the original
+    V0.1 behavior. Call ``attach_checkpoint_storage()`` with a
+    ``CheckpointStorage`` implementation (see
+    ``harness.core.state.storage``) to make checkpoints survive process
+    restarts — this is opt-in so existing code and tests are unaffected.
+    """
+
     def __init__(self):
         self._states: Dict[str, TaskState] = {}
         self._checkpoint_store: Dict[str, Checkpoint] = {}
+        self._persistent_storage = None  # CheckpointStorage, if attached
     
+    def attach_checkpoint_storage(self, storage):
+        """Attach a CheckpointStorage backend for persistent checkpoints."""
+        self._persistent_storage = storage
+
     def create_state(self, task_id: str, **kwargs) -> TaskState:
         """Create a new task state"""
         state = TaskState(task_id=task_id, **kwargs)
@@ -154,14 +188,23 @@ class StateManager:
             del self._states[task_id]
     
     def save_checkpoint(self, state: TaskState, node_id: str) -> Checkpoint:
-        """Save a checkpoint for a task"""
+        """Save a checkpoint for a task (and persist it, if storage attached)"""
         checkpoint = state.create_checkpoint(node_id)
         self._checkpoint_store[checkpoint.checkpoint_id] = checkpoint
+        if self._persistent_storage is not None:
+            self._persistent_storage.save(checkpoint.to_dict())
         return checkpoint
     
     def get_checkpoint(self, checkpoint_id: str) -> Optional[Checkpoint]:
-        """Get a specific checkpoint"""
-        return self._checkpoint_store.get(checkpoint_id)
+        """Get a specific checkpoint (memory first, falling back to persistent storage)"""
+        cached = self._checkpoint_store.get(checkpoint_id)
+        if cached is not None:
+            return cached
+        if self._persistent_storage is not None:
+            data = self._persistent_storage.load(checkpoint_id)
+            if data:
+                return self._checkpoint_from_dict(data)
+        return None
     
     def get_last_checkpoint(self, task_id: str) -> Optional[Checkpoint]:
         """Get the last checkpoint for a task"""
@@ -179,13 +222,49 @@ class StateManager:
                 state.restore_from_checkpoint(checkpoint)
                 return True
         return False
+
+    def restore_task_from_persistent_storage(self, task_id: str) -> Optional[TaskState]:
+        """Recreate a TaskState from persisted checkpoints after a restart.
+
+        This is the actual crash-recovery path (CRITICAL-003): if the
+        process died, ``self._states`` is empty, but the checkpoints on
+        disk are not. This rebuilds an in-memory TaskState from the most
+        recent persisted checkpoint so execution can resume.
+        """
+        if self._persistent_storage is None:
+            return None
+
+        checkpoint_dicts = self._persistent_storage.load_all_for_task(task_id)
+        if not checkpoint_dicts:
+            return None
+
+        checkpoints = [self._checkpoint_from_dict(d) for d in checkpoint_dicts]
+        latest = checkpoints[-1]
+
+        state = TaskState(task_id=task_id, status=latest.state_snapshot.get("status", "running"))
+        state.checkpoints = checkpoints
+        state.restore_from_checkpoint(latest)
+        self._states[task_id] = state
+        return state
+
+    @staticmethod
+    def _checkpoint_from_dict(data: Dict[str, Any]) -> Checkpoint:
+        return Checkpoint(
+            checkpoint_id=data["checkpoint_id"],
+            task_id=data["task_id"],
+            node_id=data["node_id"],
+            timestamp=data["timestamp"],
+            state_snapshot=data.get("state_snapshot", {}),
+        )
     
     def list_states(self) -> List[str]:
         """List all task IDs"""
         return list(self._states.keys())
     
     def clear_all(self):
-        """Clear all states and checkpoints"""
+        """Clear all states and checkpoints (in-memory only — does not
+        touch persistent storage; use the storage backend's own cleanup
+        methods to purge disk-backed checkpoints)."""
         self._states.clear()
         self._checkpoint_store.clear()
 

@@ -79,30 +79,41 @@ class Graph:
             self._adjacency[edge.target] = []
     
     def get_next_nodes(self, node_id: str, state: Any = None) -> List[str]:
-        """Get the next node(s) to execute from current node"""
+        """Get the next node(s) to execute from current node.
+
+        Rules:
+        - If the source node is CONDITIONAL (has a condition_func), it is
+          evaluated exactly once and its return value must match the
+          ``condition`` label of one of the outgoing edges. That edge's
+          target is returned. Edges without a ``condition`` from a
+          conditional node act as the default/fallback path, used only if
+          no labeled edge matches.
+        - If the source node is NOT conditional, all unconditional edges
+          are returned (fan-out / parallel-style edges). Edges with a
+          ``condition`` set on a non-conditional node are ignored, since
+          there is no evaluator for them (this previously looked up the
+          condition string directly in ``state.outputs``, which conflated
+          "truthy output key" with "branch label" and never worked
+          correctly for real branching).
+        """
         if node_id not in self._adjacency:
             return []
-        
-        next_nodes = []
-        for edge in self._adjacency[node_id]:
-            if edge.condition:
-                # Conditional edge - evaluate condition
-                if state and hasattr(state, 'outputs'):
-                    # Simple condition evaluation
-                    condition_result = state.outputs.get(edge.condition, False)
-                    if condition_result:
-                        next_nodes.append(edge.target)
-                else:
-                    # Try to get condition from node's condition_func
-                    source_node = self.nodes.get(node_id)
-                    if source_node:
-                        result = source_node.evaluate_condition(state)
-                        if result == edge.target:
-                            next_nodes.append(edge.target)
-            else:
-                next_nodes.append(edge.target)
-        
-        return next_nodes
+
+        edges = self._adjacency[node_id]
+        source_node = self.nodes.get(node_id)
+
+        if source_node and source_node.node_type == NodeType.CONDITIONAL:
+            label = source_node.evaluate_condition(state)
+
+            labeled_match = [e.target for e in edges if e.condition == label]
+            if labeled_match:
+                return labeled_match
+
+            fallback = [e.target for e in edges if e.condition is None]
+            return fallback
+
+        # Non-conditional node: follow all unconditional edges
+        return [e.target for e in edges if e.condition is None]
     
     def get_node(self, node_id: str) -> Optional[Node]:
         """Get a node by ID"""
@@ -138,8 +149,48 @@ class Graph:
             cant_reach_end = set(self.nodes.keys()) - visited
             if cant_reach_end:
                 errors.append(f"Nodes that cannot reach END: {cant_reach_end}")
-        
+
+        # Detect cycles (unless the graph intentionally uses LOOP nodes,
+        # which are expected to be self-terminating via their own logic
+        # and are validated separately by the runtime's max_steps guard).
+        cycle_nodes = self._detect_cycle()
+        non_loop_cycle_nodes = {
+            n for n in cycle_nodes
+            if self.nodes.get(n) and self.nodes[n].node_type != NodeType.LOOP
+        }
+        if non_loop_cycle_nodes:
+            errors.append(f"Cycle detected involving nodes: {non_loop_cycle_nodes}")
+
         return len(errors) == 0, errors
+
+    def _detect_cycle(self) -> Set[str]:
+        """Return the set of node ids that participate in at least one cycle."""
+        WHITE, GRAY, BLACK = 0, 1, 2
+        color = {node_id: WHITE for node_id in self.nodes}
+        cyclic_nodes: Set[str] = set()
+
+        def visit(node_id: str, stack: List[str]):
+            color[node_id] = GRAY
+            stack.append(node_id)
+            for edge in self._adjacency.get(node_id, []):
+                target = edge.target
+                if target not in color:
+                    continue
+                if color[target] == GRAY:
+                    # Found a back-edge: everything from target's position
+                    # in the stack onward is part of a cycle
+                    idx = stack.index(target)
+                    cyclic_nodes.update(stack[idx:])
+                elif color[target] == WHITE:
+                    visit(target, stack)
+            stack.pop()
+            color[node_id] = BLACK
+
+        for node_id in list(self.nodes.keys()):
+            if color[node_id] == WHITE:
+                visit(node_id, [])
+
+        return cyclic_nodes
     
     def _dfs(self, node_id: str, visited: Set[str]):
         """Depth-first search from a node"""
