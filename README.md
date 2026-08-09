@@ -15,7 +15,8 @@ Built from scratch with a modular, graph-based execution engine.
 │   │   ├── state/        # Shared state management
 │   │   ├── runtime/      # Runtime execution engine
 │   │   ├── orchestrator/ # Orchestration logic
-│   │   └── events/       # Event system
+│   │   ├── events/       # Event system
+│   │   └── git/          # Git persistence & publication
 │   │
 │   ├── agents/           # Agent definitions
 │   ├── nodes/            # Node implementations
@@ -29,6 +30,7 @@ Built from scratch with a modular, graph-based execution engine.
 ├── projects/             # Project outputs
 ├── scripts/              # Utility scripts
 ├── .env.example          # Environment variables template
+├── TASK_MANIFEST.json    # Task persistence history
 ├── README.md             # This file
 ├── ARCHITECTURE.md       # Detailed architecture
 └── GRAPH.md              # Graph documentation
@@ -44,6 +46,7 @@ Built from scratch with a modular, graph-based execution engine.
 ### 2. State Engine
 - Shared state across all nodes
 - Task ID, metadata, inputs, outputs, history, errors, checkpoints
+- Git persistence fields: commit_sha, branch, remote, publication_status, remote_verified
 
 ### 3. Node System
 - Standard interface: id, name, execute(), input, output, error handling
@@ -62,16 +65,49 @@ Built from scratch with a modular, graph-based execution engine.
 ### 7. Checkpoint System
 - Save state after each successful node
 - Restore from last valid checkpoint
+- Includes Git state for recovery
 
 ### 8. Event System
 - TASK_STARTED, NODE_STARTED, NODE_COMPLETED, NODE_FAILED
 - TOOL_STARTED, TOOL_COMPLETED, CHECKPOINT_CREATED, TASK_COMPLETED
+- GIT_STATUS_CHECKED, COMMIT_CREATED, PUBLICATION_REQUIRED
+- PUBLICATION_STARTED, PUBLICATION_COMPLETED, REMOTE_COMMIT_VERIFIED
+- TASK_PERSISTENCE_FAILED
 
 ### 9. Logging
 - Structured logging for execution reconstruction
 
 ### 10. Error Handling
 - Retry mechanism, error state, checkpoint recovery
+
+### 11. Git Persistence (NEW - V0.1)
+- **GitInspector**: Repository state inspection
+- **GitPersistence**: Commit creation and management
+- **GitPublicationProvider**: Remote publication abstraction
+- **GitValidator**: Validation gates for commits and publication
+- **TaskManifest**: Task persistence history and recovery
+
+## Task Completion Lifecycle
+
+A task can only be marked as **COMPLETE** after passing through these stages:
+
+```
+IMPLEMENTING → TESTING → READY_TO_COMMIT → COMMITTED → 
+READY_TO_PUBLISH → PUBLISHED → VERIFIED → COMPLETE
+```
+
+### Critical Rules:
+
+1. **Tests must pass** before any commit
+2. **No sensitive files** (.env, tokens, API keys, passwords, credentials)
+3. **Commit must be created** with proper message
+4. **Commit must be published** to remote (GitHub)
+5. **Remote commit must be verified** on the remote branch
+
+If publication is not possible in the current environment:
+- Status becomes: `PUBLICATION_REQUIRED`
+- Task status: `INCOMPLETE — GITHUB PUBLICATION REQUIRED`
+- Task CANNOT be marked as COMPLETE
 
 ## Quick Start
 
@@ -81,6 +117,9 @@ python -m harness.tests.run_all_tests
 
 # Run test graph
 python -m harness.tests.test_graph_execution
+
+# Run Git persistence tests
+python harness/tests/test_git_persistence.py
 ```
 
 ## Status
