@@ -10,5 +10,23 @@ __pycache__/
 venv/
 env/
 .env
+.env.local
 .env.*
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.coverage
+coverage/
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
 ```
