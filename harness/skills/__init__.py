@@ -134,3 +134,28 @@ def register_test_skill():
         category="testing",
         version="1.0.0"
     )
+
+
+def register_redesign_intelligence_skill():
+    """Register the redesign intelligence skill"""
+    from harness.skills.redesign_intelligence import redesign_intelligence_skill
+    
+    registry = get_skill_registry()
+    
+    registry.register_skill(
+        name="redesign-intelligence",
+        description="Transforms WebsiteDesignProfile into RedesignStrategy",
+        func=redesign_intelligence_skill,
+        category="design",
+        version="1.0.0"
+    )
+
+
+# Auto-register test skill
+register_test_skill()
+
+# Auto-register redesign intelligence skill
+try:
+    register_redesign_intelligence_skill()
+except Exception:
+    pass  # May fail if redesign_intelligence module has issues
