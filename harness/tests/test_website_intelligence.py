@@ -98,24 +98,65 @@ def test_serialization_roundtrip():
     print("✓ Serialization roundtrip successful")
 
 
+def _make_fixture_project(path):
+    """
+    Create a minimal but realistic project on disk for the inspector to
+    read: a package.json declaring React + Tailwind, plus a components
+    folder, so WebsiteInspector.inspect() has something real to detect
+    instead of an empty directory.
+    """
+    import json
+    import shutil
+
+    if os.path.exists(path):
+        shutil.rmtree(path)
+    os.makedirs(path)
+
+    package_json = {
+        "name": "test_website_project",
+        "dependencies": {
+            "react": "^18.2.0",
+            "react-dom": "^18.2.0",
+        },
+        "devDependencies": {
+            "tailwindcss": "^3.4.0",
+        },
+    }
+    with open(os.path.join(path, "package.json"), "w") as f:
+        json.dump(package_json, f)
+
+    components_dir = os.path.join(path, "components")
+    os.makedirs(components_dir)
+    with open(os.path.join(components_dir, "Header.tsx"), "w") as f:
+        f.write("export default function Header() { return null; }\n")
+    with open(os.path.join(components_dir, "Footer.tsx"), "w") as f:
+        f.write("export default function Footer() { return null; }\n")
+
+
 def test_inspector_with_project():
     """Test WebsiteInspector with a real project"""
+    import shutil
     from harness.skills.website_intelligence import WebsiteInspector
-    
-    inspector = WebsiteInspector(project_path='/tmp/test_website_project')
-    profile = inspector.inspect(url='https://example.com')
-    
-    assert profile.project_name == 'test_website_project'
-    assert profile.url == 'https://example.com'
-    
-    if profile.technology_stack:
+
+    fixture_path = '/tmp/test_website_project'
+    _make_fixture_project(fixture_path)
+    try:
+        inspector = WebsiteInspector(project_path=fixture_path)
+        profile = inspector.inspect(url='https://example.com')
+
+        assert profile.project_name == 'test_website_project'
+        assert profile.url == 'https://example.com'
+
+        assert profile.technology_stack is not None
         assert 'React' in profile.technology_stack.frontend_frameworks
         assert 'Tailwind CSS' in profile.technology_stack.css_frameworks
-    
-    if profile.component_library:
+
+        assert profile.component_library is not None
         assert profile.component_library.component_count > 0
-    
-    print("✓ Inspector with project successful")
+
+        print("✓ Inspector with project successful")
+    finally:
+        shutil.rmtree(fixture_path, ignore_errors=True)
 
 
 def test_inspector_empty_project():
