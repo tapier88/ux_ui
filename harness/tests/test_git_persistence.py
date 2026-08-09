@@ -416,6 +416,110 @@ class TestBranchAndRemoteMismatch(unittest.TestCase):
         self.assertIn("test/repo", remote)
 
 
+class TestPublicationSync(unittest.TestCase):
+    """
+    Test that publication syncs the task branch with the base branch
+    before pushing, and handles both the clean case and the real
+    conflict case (the bug behind the PRs that kept arriving with
+    merge conflicts).
+    """
+
+    def setUp(self):
+        # A bare "remote" repo plus a working clone, so we can push/fetch
+        # for real instead of mocking git.
+        self.remote_dir = tempfile.mkdtemp()
+        subprocess.run(["git", "init", "--bare"], cwd=self.remote_dir, capture_output=True)
+
+        self.work_dir = tempfile.mkdtemp()
+        subprocess.run(["git", "clone", self.remote_dir, self.work_dir], capture_output=True)
+        subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=self.work_dir, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], cwd=self.work_dir, capture_output=True)
+
+        # Initial commit on main
+        self._write("base.txt", "base\n")
+        subprocess.run(["git", "add", "."], cwd=self.work_dir, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "initial"], cwd=self.work_dir, capture_output=True)
+        subprocess.run(["git", "branch", "-M", "main"], cwd=self.work_dir, capture_output=True)
+        subprocess.run(["git", "push", "-u", "origin", "main"], cwd=self.work_dir, capture_output=True)
+        # Point the bare remote's HEAD at main so later clones (used to
+        # simulate a second, concurrent task) check it out by default.
+        subprocess.run(["git", "symbolic-ref", "HEAD", "refs/heads/main"], cwd=self.remote_dir, capture_output=True)
+
+        self.publisher = LocalPublicationProvider(self.work_dir)
+
+    def tearDown(self):
+        shutil.rmtree(self.remote_dir, ignore_errors=True)
+        shutil.rmtree(self.work_dir, ignore_errors=True)
+
+    def _write(self, name, content):
+        with open(os.path.join(self.work_dir, name), "w") as f:
+            f.write(content)
+
+    def _second_clone_commits_to_main(self, filename, content):
+        """Simulate another task publishing to main while we're on a branch."""
+        other_dir = tempfile.mkdtemp()
+        try:
+            subprocess.run(["git", "clone", self.remote_dir, other_dir], capture_output=True)
+            subprocess.run(["git", "config", "user.email", "other@test.com"], cwd=other_dir, capture_output=True)
+            subprocess.run(["git", "config", "user.name", "Other User"], cwd=other_dir, capture_output=True)
+            subprocess.run(["git", "checkout", "main"], cwd=other_dir, capture_output=True)
+            with open(os.path.join(other_dir, filename), "w") as f:
+                f.write(content)
+            subprocess.run(["git", "add", "."], cwd=other_dir, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "other task update"], cwd=other_dir, capture_output=True)
+            subprocess.run(["git", "push", "origin", "main"], cwd=other_dir, capture_output=True)
+        finally:
+            shutil.rmtree(other_dir, ignore_errors=True)
+
+    def test_16_prepare_publication_syncs_without_conflict(self):
+        """Test 16: prepare_publication rebases cleanly when changes don't overlap"""
+        # Create a task branch and make an unrelated change
+        subprocess.run(["git", "checkout", "-b", "task-a"], cwd=self.work_dir, capture_output=True)
+        self._write("task_a.txt", "task a work\n")
+        subprocess.run(["git", "add", "."], cwd=self.work_dir, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "task a work"], cwd=self.work_dir, capture_output=True)
+
+        # Meanwhile, another task publishes an unrelated change to main
+        self._second_clone_commits_to_main("task_b.txt", "task b work\n")
+
+        # Before the fix, this only fetched and never rebased, so the
+        # branch would be published still missing task b's change and
+        # diverging from main.
+        result = self.publisher.prepare_publication(base_branch="main")
+        self.assertTrue(result)
+
+        # After a successful sync, both files should be present locally
+        self.assertTrue(os.path.exists(os.path.join(self.work_dir, "task_a.txt")))
+        self.assertTrue(os.path.exists(os.path.join(self.work_dir, "task_b.txt")))
+
+    def test_17_prepare_publication_reports_real_conflict(self):
+        """Test 17: a genuine conflict is reported, not silently pushed or crashed on"""
+        subprocess.run(["git", "checkout", "-b", "task-c"], cwd=self.work_dir, capture_output=True)
+        self._write("base.txt", "task c changed this line\n")
+        subprocess.run(["git", "add", "."], cwd=self.work_dir, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "task c edits base.txt"], cwd=self.work_dir, capture_output=True)
+
+        # Another task edits the SAME line on main -> real conflict
+        self._second_clone_commits_to_main("base.txt", "task d changed this line too\n")
+
+        result = self.publisher.prepare_publication(base_branch="main")
+        self.assertFalse(result)
+        self.assertEqual(
+            self.publisher.get_publication_status(),
+            PublicationStatus.PUBLICATION_REQUIRED,
+        )
+
+        # Repo must be left clean (no half-finished rebase) so the agent
+        # or a human can retry without extra cleanup.
+        status_success, status_out, _ = subprocess.run(
+            ["git", "status", "--porcelain=v1"], cwd=self.work_dir,
+            capture_output=True, text=True
+        ).returncode, "", ""
+        rebase_in_progress = os.path.exists(os.path.join(self.work_dir, ".git", "rebase-merge")) or \
+            os.path.exists(os.path.join(self.work_dir, ".git", "rebase-apply"))
+        self.assertFalse(rebase_in_progress)
+
+
 def run_all_tests():
     """Run all tests and return results"""
     loader = unittest.TestLoader()
@@ -428,6 +532,7 @@ def run_all_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestGitValidator))
     suite.addTests(loader.loadTestsFromTestCase(TestTaskManifest))
     suite.addTests(loader.loadTestsFromTestCase(TestBranchAndRemoteMismatch))
+    suite.addTests(loader.loadTestsFromTestCase(TestPublicationSync))
     
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)
