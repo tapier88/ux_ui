@@ -12,6 +12,7 @@ The harness is built from scratch with a modular, graph-based execution engine.
 3. **Testability**: All components can be tested in isolation with mocks
 4. **Recoverability**: Checkpoints enable recovery from errors
 5. **Observability**: Events and structured logging provide full visibility
+6. **Persistence**: All tasks must be persisted to Git before completion
 
 ## Directory Structure
 
@@ -23,7 +24,8 @@ The harness is built from scratch with a modular, graph-based execution engine.
 │   │   ├── state/      # State management and checkpoints
 │   │   ├── runtime/    # Execution engine
 │   │   ├── orchestrator/ # Orchestration logic (future)
-│   │   └── events/     # Event system
+│   │   ├── events/     # Event system
+│   │   └── git/        # Git persistence & publication
 │   │
 │   ├── agents/         # LLM provider abstractions
 │   ├── nodes/          # Node implementations
@@ -36,6 +38,7 @@ The harness is built from scratch with a modular, graph-based execution engine.
 │
 ├── projects/           # Project outputs (future)
 ├── scripts/            # Utility scripts
+├── TASK_MANIFEST.json  # Task persistence history
 └── docs/               # Documentation
 ```
 

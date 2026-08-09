@@ -42,6 +42,13 @@ class TaskState:
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     
+    # Git persistence fields
+    git_commit_sha: Optional[str] = None
+    git_branch: Optional[str] = None
+    git_remote: Optional[str] = None
+    git_publication_status: Optional[str] = None
+    git_remote_verified: bool = False
+    
     def to_dict(self) -> Dict[str, Any]:
         return {
             "task_id": self.task_id,
@@ -54,7 +61,13 @@ class TaskState:
             "errors": self.errors,
             "checkpoints": [c.to_dict() for c in self.checkpoints],
             "created_at": self.created_at,
-            "updated_at": self.updated_at
+            "updated_at": self.updated_at,
+            # Git persistence fields
+            "git_commit_sha": self.git_commit_sha,
+            "git_branch": self.git_branch,
+            "git_remote": self.git_remote,
+            "git_publication_status": self.git_publication_status,
+            "git_remote_verified": self.git_remote_verified,
         }
     
     def add_to_history(self, action: str, data: Optional[Dict[str, Any]] = None):
