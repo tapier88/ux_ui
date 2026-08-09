@@ -134,3 +134,26 @@ def register_test_skill():
         category="testing",
         version="1.0.0"
     )
+
+
+# Redesign intelligence skill registration
+def register_redesign_intelligence_skill():
+    """Register the redesign intelligence skill"""
+    try:
+        from .redesign_intelligence import run_redesign_intelligence
+        
+        registry = get_skill_registry()
+        registry.register_skill(
+            name="redesign-intelligence",
+            description="Transforms WebsiteDesignProfile into RedesignStrategy",
+            func=run_redesign_intelligence,
+            category="design",
+            version="1.0.0"
+        )
+    except ImportError:
+        pass  # Skill module not available
+
+
+# Auto-register skills on module load
+register_test_skill()
+register_redesign_intelligence_skill()
