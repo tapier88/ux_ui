@@ -194,11 +194,21 @@ class RemoveEngine:
                 ))
         
         # Check for obsolete patterns
-        patterns = profile.get("patterns", {})
+        #
+        # website_intelligence's WebsiteDesignProfile.patterns is a flat
+        # List[str] of detected pattern names (e.g. "hero-section",
+        # "carousel") - it has never been a dict with an "obsolete" key.
+        # The old `patterns.get("obsolete")` here could never have worked;
+        # it crashed with AttributeError whenever any pattern was detected
+        # at all. Compare against a known list of patterns considered
+        # obsolete/harmful to UX instead.
+        patterns = profile.get("patterns", [])
+        OBSOLETE_PATTERNS = {"table-layout", "frames", "flash", "marquee", "carousel"}
         if patterns:
-            if patterns.get("obsolete"):
+            obsolete_found = [p for p in patterns if p in OBSOLETE_PATTERNS]
+            if obsolete_found:
                 decisions.append(RemoveDecision(
-                    element="obsolete visual patterns",
+                    element=f"obsolete visual patterns ({', '.join(obsolete_found)})",
                     reason="Outdated design patterns reduce perceived quality",
                     confidence=0.7
                 ))

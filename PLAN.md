@@ -65,100 +65,99 @@ real, pero el build final todavía falla por un desajuste de tipos entre
 - [x] Gobernanza transversal: `GovernanceGate` + `ElevationScorer` — 13 tests — `harness/core/governance/` — PR #17
   - [ ] **Conectar `GovernanceGate` como paso obligatorio antes de `site_builder`** — existe pero nadie lo llama todavía
 
-## Fase 2 — Conectar el pipeline (EN PROGRESO — sistémico, no un bug puntual)
+## Fase 2 — Conectar el pipeline ✅ CERRADA — pipeline real funcionando
 
 - [x] `DesignPipelineNode` creado — corre las 5 etapas en secuencia contra un
-      `project_path` real (`harness/nodes/design_pipeline_node.py`, rama
-      `pipeline-orchestrator-and-fixes`, sin fusionar todavía)
-- [x] Bug #1 arreglado: `redesign_intelligence` crasheaba cuando
-      `website_intelligence` devuelve una sección como `None` en vez de omitirla.
-      Fix: `_normalize_profile()` en `redesign_intelligence/engine.py`.
-- [x] Bug #2 arreglado: `site_builder/builder.py` nunca importaba
-      `BuildError`/`ErrorType`/`ErrorSeverity`, el `except` que reporta fallos
-      agregaba `dict`s planos donde se esperaban objetos con `.to_dict()`.
-- [x] Bug #3 arreglado (adaptador en `DesignPipelineNode`, no en los skills):
-      `site_builder.execute_build()` espera `design_build_plan` como `dict`
-      (tipado explícito en su firma), pero se le pasaba el objeto
-      `DesignBuildPlan` crudo. Además las claves no coinciden:
-      `design_execution_planner` emite `typography_plan`, `layout_plan`,
-      `performance_plan`, `accessibility_plan`; `site_builder` lee
-      `typography`, `layout`, `performance`, `accessibility` (sin sufijo).
-      → `_adapt_build_plan_for_site_builder()` traduce ambas cosas sin tocar
-      el código interno de ninguno de los 2 skills.
-- [x] Bug #4 arreglado (mismo adaptador): `implementation_order` es una lista
-      de **dicts** (`{"task": "Design tokens", ...}`), pero el despachador de
-      `site_builder` (`_execute_step`) hace `if step == "dependencies":`
-      comparando directo contra strings — un dict nunca es igual a un string,
-      así que **ninguna rama se ejecutaba jamás, para ningún build, con
-      cualquier plan que se le pasara** (bug crítico, silencioso, probablemente
-      presente desde que se escribió `site_builder`). Fix: mapeo por
-      coincidencia de palabras clave del texto libre de `task` hacia las 14
-      palabras clave exactas que espera el despachador.
-- [x] Con los 4 fixes de arriba, el pipeline **por primera vez escribe un
-      archivo real en disco** (`src/styles/tokens.css`) en una corrida.
-- [ ] **HALLAZGO NUEVO, NO ARREGLADO — bug #5**: dentro de
-      `redesign_intelligence/engine.py`, `RemoveEngine.analyze()` hace
-      `patterns.get("obsolete")` asumiendo que `patterns` es un `dict`, pero en
-      al menos una corrida real llegó como `list` → mismo patrón de bug que
-      #1, en un lugar distinto del mismo archivo. Probablemente hay más
-      instancias de este patrón sin descubrir todavía en los otros 12 motores
-      de `redesign_intelligence/engine.py` y en los 3 empalmes de skills sin
-      auditar (ver abajo).
-- [ ] **HALLAZGO NUEVO, MÁS IMPORTANTE — `site_builder` tiene 7 de 13 métodos
-      `_handle_*` sin implementar** (`typography`, `layout`, `navigation`,
-      `interactions`, `responsive`, `accessibility`, `performance` son
-      literalmente `if x: pass`). Solo `dependencies`, `tokens`,
-      `global_styles`, `sections`, `components`, `assets` hacen trabajo real.
-      Aunque se resuelvan todos los bugs de contrato, **la mayoría del
-      trabajo de diseño calculado nunca se escribe a código** hasta que
-      alguien implemente esos 7 métodos.
-- [ ] **HALLAZGO NUEVO — `WebsiteInspector` no es determinista sobre el mismo
-      directorio entre corridas**: cada build dejó `.harness/checkpoints/` y
-      `src/` en el proyecto, y la siguiente inspección los detecta como parte
-      del proyecto a analizar, cambiando la forma del perfil resultante y
-      disparando ramas de código distintas (así apareció el bug #5, que no
-      salió en la corrida anterior con el mismo fixture). Esto significa que
-      **correr el pipeline dos veces seguidas sobre el mismo proyecto puede
-      dar resultados distintos** — hay que decidir si el inspector debe
-      ignorar sus propios artefactos (`.harness/`, quizás `src/` generado) o
-      si el diseño correcto es inspeccionar un snapshot congelado del "antes".
-- [ ] Auditar sistemáticamente (no ad hoc) los 4 empalmes entre skills +
-      los ~13 motores internos de `redesign_intelligence` en busca del mismo
-      patrón `.get()`/comparación de tipo — ver "Metodología recomendada"
-      abajo en vez de seguir reproduciendo bugs uno por uno a mano
-- [ ] Implementar los 7 métodos `_handle_*` vacíos de `site_builder`
-- [ ] Resolver la no-determinismo de `WebsiteInspector`
-- [ ] Correr el pipeline completo contra un proyecto real y verificar que
-      produce cambios de código válidos y **repetibles**
-- [ ] Crear la carpeta `projects/` (no existe todavía) como destino estándar
-- [ ] Fusionar `pipeline-orchestrator-and-fixes` a `main` una vez el pipeline
-      sea confiable, no solo "no crashea"
+      `project_path` real (`harness/nodes/design_pipeline_node.py`)
+- [x] Fixture de proyecto fijo y versionado en el repo:
+      `harness/tests/fixtures/sample_project/` (package.json con React +
+      Tailwind, componentes, página) — reemplaza los directorios ad hoc en
+      `/tmp` que hacían las pruebas no reproducibles entre sesiones
+- [x] Test de integración real: `harness/tests/test_design_pipeline_integration.py`
+      — 5 tests, corre el pipeline completo (dry-run y build real) contra el
+      fixture fijo, incluyendo una corrida doble consecutiva para atrapar
+      no-determinismo. **5/5 pasan.**
+- [x] **9 bugs de integración encontrados y arreglados** en esta fase (lista
+      completa abajo) — todos verificados con el test de integración como
+      guardia, no solo probados a mano una vez.
+- [x] Pipeline completo verificado: corre 2 veces seguidas sobre el mismo
+      proyecto, sin errores, escribiendo archivos reales cada vez
+      (`src/styles/tokens.css` confirmado; más archivos una vez se
+      implementen los métodos `_handle_*` que faltan, ver Fase 2B)
+- [x] Fix de no-determinismo de `WebsiteInspector`: ahora excluye `.harness/`
+      de sus recorridos, igual que ya excluía `node_modules`/`.git`/etc.
 
-### Metodología recomendada para lo que sigue (en vez de seguir a mano)
+### Los 9 bugs encontrados en esta fase (todos arreglados, todos con test)
 
-El patrón que se repite (5 veces ya) es: un skill produce una forma de dato
-(`None` en vez de `{}`, `dict` en vez de `str`, sufijo `_plan` en vez de sin
-sufijo, objeto en vez de dict) y el siguiente skill asume otra forma, sin que
-ningún test lo hubiera detectado porque cada skill solo se probó aislado con
-fixtures hechos a mano que "adivinaban bien" la forma esperada.
+1. `redesign_intelligence` crasheaba si `website_intelligence` devolvía una
+   sección como `None` en vez de omitirla. Fix: `_normalize_profile()`.
+2. `site_builder/builder.py` no importaba `BuildError`/`ErrorType`/`ErrorSeverity`,
+   el manejo de errores agregaba `dict`s donde se esperaban objetos.
+3. `site_builder.execute_build()` recibía el objeto `DesignBuildPlan` en vez
+   de un `dict` (su propia firma pide `Dict[str, Any]`).
+4. `implementation_order` es una lista de `dict`s (`{"task": "Design tokens"}`),
+   pero el despachador de `site_builder` comparaba `step == "dependencies"`
+   contra strings — **ninguna rama se ejecutaba jamás, para ningún plan,
+   nunca**, hasta este fix. El bug más crítico de los 9.
+5. `RemoveEngine.analyze()` hacía `patterns.get("obsolete")` asumiendo dict;
+   `patterns` es y siempre fue un `List[str]` de nombres de patrones.
+   Reescrito para comparar contra una lista real de patrones obsoletos.
+6. `SectionPlan.layout` se serializa como string (`LayoutType.value`);
+   `section_builder` esperaba `layout.get("type")`. Adaptado en el nodo
+   orquestador.
+7. `SectionPlan.motion` es `List[str]`; `section_builder` esperaba
+   `motion.get("enabled")`/`.get("initial")`/etc. Adaptado.
+8. `responsive_behavior` viene hardcodeado en `planner.py` como
+   `{"mobile": "stack"}` (string plano); `section_builder` esperaba
+   `{"mobile": {"stack": True}}`. Adaptado — **nota**: esto también reveló
+   que `responsive_planner.py` existe como módulo pero **no está conectado**
+   a la generación real de secciones en `planner.py` (usa plantillas
+   hardcodeadas de 2-3 secciones fijas, no genera dinámicamente). Pendiente
+   real, ver Fase 2B.
+9. `SectionPlan.components` es `List[str]` de nombres; `section_builder`
+   esperaba una lista de dicts con clave `"name"`. Adaptado.
+10. Bug de Python puro (no de contrato entre skills): en
+    `section_builder.py`, un f-string generaba JSX con
+    `({className}) => {{` usando llaves simples de Python en vez de escapadas
+    (`{{className}}`), causando `NameError: name 'className' is not defined`
+    porque Python intentaba evaluar `className` como variable propia en vez
+    de emitirlo como texto literal de JSX.
 
-**Recomendación para la siguiente sesión/agente**: en vez de seguir
-reproduciendo bugs manualmente uno por uno,
-1. Crear un **fixture de proyecto fijo y versionado** en el repo (ej.
-   `harness/tests/fixtures/sample_project/`), no en `/tmp`, para que las
-   corridas sean reproducibles entre sesiones y agentes.
-2. Escribir **un test de integración real** en
-   `harness/tests/test_design_pipeline_integration.py` que corra
-   `DesignPipelineNode` contra ese fixture fijo, con `dry_run=False`, y
-   aserciones concretas (qué archivos debe crear, qué debe contener
-   `report.errors` — debe ser `[]`).
-3. Correrlo, dejar que falle, arreglar el primer bug que aparezca, volver a
-   correr — y dejar el test en el repo así queda como guardia de regresión
-   permanente, en vez de que cada bug se descubra y arregle una sola vez de
-   forma manual sin quedar protegido contra que vuelva a pasar.
-4. Repetir hasta que el test pase con `report.errors == []` **y** archivos
-   reales creados, corriendo dos veces seguidas con el mismo resultado
-   (ataca directamente el hallazgo de no-determinismo).
+**Dónde viven los fixes**: los bugs #1, #5 y #10 se arreglaron directamente
+en el código fuente de los skills (`redesign_intelligence/engine.py`,
+`site_builder/section_builder.py`) porque eran errores reales de ese código,
+no diferencias de contrato. Los bugs #2, #3, #4, #6, #7, #8, #9 se resolvieron
+en `DesignPipelineNode._adapt_build_plan_for_site_builder()`, como una capa
+de adaptación en el punto de integración — deliberado, para no reescribir la
+lógica interna de `design_execution_planner` ni de `site_builder` sin tests
+propios que protejan esos cambios.
+
+## Fase 2B — Lo que Fase 2 dejó pendiente (nuevo, no iniciada)
+
+- [ ] `site_builder` tiene 7 de 13 métodos `_handle_*` sin implementar
+      (`typography`, `layout`, `navigation`, `interactions`, `responsive`,
+      `accessibility`, `performance` son `if x: pass`). El pipeline ya no
+      crashea, pero la mayoría del trabajo de diseño calculado por
+      `redesign_intelligence`/`design_execution_planner` todavía no se
+      escribe a código real.
+- [ ] `design_execution_planner/planner.py`'s `_generate_sections()` usa
+      3 secciones hardcodeadas (hero, trust, ...) en vez de generar
+      dinámicamente a partir del `redesign_strategy` y los planners
+      especializados que sí existen como módulos
+      (`layout_planner.py`, `responsive_planner.py`, `motion_planner.py`,
+      etc.) — están escritos pero no todos están conectados a
+      `create_build_plan()`.
+- [ ] `_apply_resource_report()` en `DesignExecutionPlanner` es un `pass`
+      vacío — los recursos seleccionados por `design_resource_hub` (ej. qué
+      framework CSS usar) nunca llegan al plan de build. (Encontrado por
+      Qwen en su sesión paralela, ver Log.)
+- [ ] Fusionar `pipeline-orchestrator-and-fixes` a `main`
+- [ ] Crear la carpeta `projects/` como destino estándar de los sitios que
+      el agente genere/modifique
+- [ ] **Coordinar con el trabajo paralelo de Qwen** (ver nota en el Log de
+      hoy) antes de fusionar cualquiera de las 2 ramas — hay riesgo real de
+      duplicar el nodo orquestador y la normalización de perfil
+
 
 
 
@@ -239,6 +238,39 @@ reproduciendo bugs manualmente uno por uno,
   arreglo manual bug-por-bug aquí y se documenta metodología recomendada
   (fixture fijo + test de integración real) para la siguiente sesión. Rama:
   `pipeline-orchestrator-and-fixes`, sin fusionar.
+- **2026-08-09** — Implementada la metodología recomendada arriba: fixture
+  fijo en `harness/tests/fixtures/sample_project/` + test de integración
+  real (`test_design_pipeline_integration.py`, 5 tests). Usado como guía
+  para encontrar y arreglar 5 bugs más (total 9 en Fase 2, ver lista
+  completa en Fase 2 arriba): patterns list-vs-dict en `RemoveEngine`,
+  `SectionPlan.layout`/`.motion`/`.responsive_behavior`/`.components`
+  serializados en formas que `section_builder` no esperaba, y un `NameError`
+  de Python puro por un f-string sin escapar (`{className}` vs
+  `{{className}}`) en `section_builder.py`. **Resultado: 5/5 tests de
+  integración pasan, pipeline corre 2 veces seguidas sin errores, 178 tests
+  en total en el repo, todos en verde.** Fase 2 se marca cerrada. Fase 2B
+  abierta con lo que quedó pendiente (7 métodos sin implementar en
+  site_builder, secciones hardcodeadas en planner.py, resource_report nunca
+  aplicado).
+- **2026-08-09 — ALERTA DE COORDINACIÓN** — Mientras se hacía este trabajo,
+  Qwen trabajaba en paralelo (fuera del prompt asignado) en su propia
+  versión del orquestador: `design_pipeline_nodes.py` (varios nodos +
+  `Graph` de bajo nivel, en vez de un solo `DesignPipelineNode`), y
+  encontró independientemente el mismo bug de `typography=None`, arreglándolo
+  con una normalización distinta **dentro de `RedesignIntelligenceEngine.analyze()`**
+  (no en `redesign_intelligence_skill()` como se hizo aquí). También detectó
+  el gap de `_apply_resource_report()` vacío (ya anotado en Fase 2B).
+  **Verificado en este momento: esa rama todavía NO existe en el remoto**
+  (`git branch -r` no la muestra) — el trabajo de Qwen sigue solo local a su
+  sesión, sin push todavía. Antes de fusionar `pipeline-orchestrator-and-fixes`
+  (esta rama, ya con 5/5 tests de integración pasando) a `main`, o antes de
+  que Qwen haga push/PR de la suya: alguien tiene que decidir cuál
+  orquestador es el definitivo. Fusionar ambos tal cual casi seguro duplica
+  lógica de normalización de perfil y deja dos formas distintas de conectar
+  el mismo pipeline compitiendo en `main`. **Acción recomendada**: correr
+  `git branch -r` de nuevo antes de la próxima fusión para ver si ya apareció
+  la rama de Qwen, y si aparece, compararla contra esta antes de fusionar
+  cualquiera de las 2.
 
 ---
 

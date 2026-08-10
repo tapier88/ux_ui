@@ -243,6 +243,56 @@ class DesignPipelineNode(BaseNode):
 
         adapted["implementation_order"] = mapped_steps
         adapted["_unmapped_steps"] = unmapped_steps
+
+        # 3. section_builder.build_section() expects section["layout"] and
+        # section["motion"] to be dicts ({"type": "grid", ...} /
+        # {"enabled": bool, "initial": {...}, ...}); SectionPlan.to_dict()
+        # serializes layout as a plain string (LayoutType enum's .value)
+        # and motion as a plain List[str] of effect names. Wrap both
+        # non-destructively so site_builder gets the shape it reads
+        # without changing what design_execution_planner produces.
+        if "sections" in adapted and isinstance(adapted["sections"], list):
+            def _adapt_section(s):
+                if not isinstance(s, dict):
+                    return s
+                s = dict(s)
+                if isinstance(s.get("layout"), str):
+                    s["layout"] = {"type": s["layout"]}
+                if isinstance(s.get("motion"), list):
+                    effects = s["motion"]
+                    s["motion"] = {
+                        "enabled": len(effects) > 0,
+                        "effects": effects,
+                        "initial": {},
+                        "animate": {},
+                        "transition": {},
+                    }
+                if isinstance(s.get("responsive_behavior"), dict):
+                    # planner.py currently hardcodes entries like
+                    # {"mobile": "stack"} (a bare string) instead of the
+                    # nested {"mobile": {"stack": True}} shape
+                    # section_builder._build_responsive_classes() reads via
+                    # mobile.get("stack"). ResponsivePlanner exists as its
+                    # own module but isn't actually wired into planner.py's
+                    # section generation yet (see PLAN.md) - this only
+                    # bridges the shape of whatever string value is there
+                    # today, it doesn't compute anything new.
+                    fixed_responsive = {}
+                    for breakpoint_key, value in s["responsive_behavior"].items():
+                        if isinstance(value, str):
+                            fixed_responsive[breakpoint_key] = {value: True}
+                        else:
+                            fixed_responsive[breakpoint_key] = value
+                    s["responsive_behavior"] = fixed_responsive
+                if isinstance(s.get("components"), list) and s["components"] and isinstance(s["components"][0], str):
+                    # SectionPlan.components is List[str] of component
+                    # names; section_builder._generate_component_imports()
+                    # reads comp.get("name", ...) expecting dicts.
+                    s["components"] = [{"name": c} for c in s["components"]]
+                return s
+
+            adapted["sections"] = [_adapt_section(s) for s in adapted["sections"]]
+
         return adapted
 
     @staticmethod

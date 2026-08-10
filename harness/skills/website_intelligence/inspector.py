@@ -426,8 +426,14 @@ class WebsiteInspector:
             return css_files
         
         for root, dirs, files in os.walk(self.project_path):
-            # Skip node_modules and other large directories
-            dirs[:] = [d for d in dirs if d not in ['node_modules', '.git', '__pycache__', 'dist', 'build']]
+            # Skip node_modules, harness bookkeeping, and other large/
+            # irrelevant directories. .harness/ specifically holds this
+            # tool's own checkpoints - without excluding it, inspecting the
+            # same project twice in a row (inspect -> build -> inspect
+            # again) picks up files the harness itself wrote as if they
+            # were part of the project, changing the detected profile
+            # between runs on an otherwise-unchanged project.
+            dirs[:] = [d for d in dirs if d not in ['node_modules', '.git', '__pycache__', 'dist', 'build', '.harness']]
             
             for file in files:
                 if file.endswith('.css') or file.endswith('.scss') or file.endswith('.sass'):
