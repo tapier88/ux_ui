@@ -40,6 +40,7 @@ class MemoryCategory:
     LESSON_LEARNED = "lesson_learned"
     CLIENT_FEEDBACK = "client_feedback"
     PROSPECT_SCORE = "prospect_score"
+    GATE_EVALUATION = "gate_evaluation"
 
 
 @dataclass
