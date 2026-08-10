@@ -107,7 +107,7 @@ interface {name}Props {{
   className?: string;
 }}
 
-export const {name}: React.FC<{name}Props> = ({className}) => {{
+export const {name}: React.FC<{name}Props> = ({{className}}) => {{
   return (
     <section className="{name.lower()} {' '.join(all_classes)} ${{className || ''}}">
       {self._generate_section_inner(content_html, components, motion_props)}
