@@ -216,33 +216,77 @@ class SiteBuilder:
                 self.report.files_created.append(styles_path)
     
     def _handle_typography(self, design_build_plan: Dict[str, Any]):
-        """Handle typography implementation"""
+        """
+        Handle typography implementation.
+
+        typography_plan comes from design_execution_planner's
+        TypographyTokens: font families plus per-level (h1/h2/h3/body/small)
+        size/weight/line-height dicts. Writes them as CSS custom properties,
+        the same pattern _handle_tokens already uses for design tokens.
+        """
         typography = design_build_plan.get("typography", {})
-        
-        if typography:
-            # Implement typography settings
-            fonts = typography.get("fonts", [])
-            sizes = typography.get("sizes", {})
-            
-            # This would generate typography CSS
-            pass
-    
+
+        if not typography:
+            return
+
+        css_vars = {
+            "font-family-base": typography.get("font_family", "Inter, system-ui, sans-serif"),
+            "font-family-heading": typography.get("heading_font", "Inter, system-ui, sans-serif"),
+            "font-family-body": typography.get("body_font", "Inter, system-ui, sans-serif"),
+            "letter-spacing-base": typography.get("letter_spacing", "normal"),
+            "text-max-width": typography.get("max_width", "65ch"),
+        }
+        for level in ("h1", "h2", "h3", "body", "small"):
+            level_tokens = typography.get(level)
+            if isinstance(level_tokens, dict):
+                css_vars[f"font-size-{level}"] = level_tokens.get("size", "1rem")
+                css_vars[f"font-weight-{level}"] = level_tokens.get("weight", "400")
+                css_vars[f"line-height-{level}"] = level_tokens.get("line_height", "1.5")
+
+        css_content = self.code_generator.generate_css_variables(css_vars)
+        typography_path = "src/styles/typography.css"
+        self.file_manager.create_file(
+            typography_path, css_content, reason="Implement typography tokens"
+        )
+        self.report.files_created.append(typography_path)
+
     def _handle_layout(self, design_build_plan: Dict[str, Any]):
-        """Handle layout implementation"""
+        """
+        Handle layout implementation.
+
+        layout_plan comes from design_execution_planner's LayoutPlan:
+        container width, grid column count, gaps, content density. Writes
+        them as CSS custom properties consumed by section/component code
+        (e.g. var(--layout-container-width)).
+        """
         layout = design_build_plan.get("layout", {})
-        
-        if layout:
-            # Implement layout decisions
-            pass
-    
+
+        if not layout:
+            return
+
+        gaps = layout.get("gaps", {})
+        css_vars = {
+            "layout-container-width": layout.get("container_width", "1200px"),
+            "layout-columns": str(layout.get("columns", 12)),
+            "layout-gap-row": gaps.get("row", "1.5rem") if isinstance(gaps, dict) else "1.5rem",
+            "layout-gap-col": gaps.get("col", "1.5rem") if isinstance(gaps, dict) else "1.5rem",
+        }
+
+        css_content = self.code_generator.generate_css_variables(css_vars)
+        layout_path = "src/styles/layout.css"
+        self.file_manager.create_file(
+            layout_path, css_content, reason="Implement layout tokens"
+        )
+        self.report.files_created.append(layout_path)
+
     def _handle_navigation(self, design_build_plan: Dict[str, Any]):
         """Handle navigation implementation"""
         navigation = design_build_plan.get("navigation", {})
-        
+
         if navigation:
             # Implement navigation components
             pass
-    
+
     def _handle_sections(self, design_build_plan: Dict[str, Any]):
         """Handle section implementation"""
         sections = design_build_plan.get("sections", [])
@@ -287,28 +331,169 @@ class SiteBuilder:
             pass
     
     def _handle_responsive(self, design_build_plan: Dict[str, Any]):
-        """Handle responsive implementation"""
-        responsive_plan = design_build_plan.get("responsive_plan", {})
-        
-        if responsive_plan:
-            # Implement responsive behavior
-            pass
-    
+        """
+        Handle responsive implementation.
+
+        responsive_plan comes from design_execution_planner's
+        ResponsivePlan: per-breakpoint (desktop/tablet/mobile)
+        ResponsiveBehavior descriptions (layout_change, font_change,
+        spacing_change, etc - free-text strings describing intent, not
+        CSS values directly). Writes them as documented CSS custom
+        media-query breakpoints plus a comment block recording the
+        intended behavior per breakpoint, so the design decisions aren't
+        silently dropped even though translating free-text intent into
+        exact CSS rules per component is out of scope here.
+        """
+        responsive_plan = design_build_plan.get("responsive", {}) or design_build_plan.get("responsive_plan", {})
+
+        if not responsive_plan:
+            return
+
+        breakpoints = {
+            "mobile": "max-width: 767px",
+            "tablet": "min-width: 768px) and (max-width: 1023px",
+            "desktop": "min-width: 1024px",
+        }
+
+        lines = ["/* Responsive behavior plan - see PLAN.md Fase 2B: "
+                 "generated from design_execution_planner's ResponsivePlan */"]
+        for breakpoint_name, media_query in breakpoints.items():
+            behavior = responsive_plan.get(breakpoint_name, {})
+            if not isinstance(behavior, dict) or not behavior:
+                continue
+            lines.append(f"\n@media ({media_query}) {{")
+            lines.append("  /*")
+            for key, value in behavior.items():
+                if value:
+                    lines.append(f"   - {key}: {value}")
+            lines.append("  */")
+            lines.append("}")
+
+        if len(lines) <= 1:
+            return
+
+        responsive_path = "src/styles/responsive.css"
+        self.file_manager.create_file(
+            responsive_path, "\n".join(lines), reason="Document responsive behavior plan"
+        )
+        self.report.files_created.append(responsive_path)
+
     def _handle_accessibility(self, design_build_plan: Dict[str, Any]):
-        """Handle accessibility implementation"""
+        """
+        Handle accessibility implementation.
+
+        accessibility_plan comes from design_execution_planner's
+        AccessibilityPlan: booleans/dicts for semantic HTML, keyboard nav,
+        focus states, contrast targets, touch target sizes. Writes the
+        concrete, code-generatable parts (focus-state CSS, contrast
+        targets as documented custom properties) plus a checklist file
+        for the parts that need human/component-level review
+        (semantic_html, aria, screen_reader, form_accessibility can't be
+        verified from a plan dict alone).
+        """
         accessibility = design_build_plan.get("accessibility", {})
-        
-        if accessibility:
-            # Implement accessibility features
-            pass
-    
+
+        if not accessibility:
+            return
+
+        focus_states = accessibility.get("focus_states", {})
+        contrast = accessibility.get("contrast", {})
+        touch_targets = accessibility.get("touch_targets", {})
+
+        css_vars = {}
+        if isinstance(focus_states, dict) and focus_states:
+            css_vars["focus-outline"] = focus_states.get("outline", "2px solid")
+            css_vars["focus-offset"] = focus_states.get("offset", "2px")
+        if isinstance(contrast, dict) and contrast:
+            css_vars["contrast-min-ratio"] = str(contrast.get("min_ratio", 4.5))
+        if isinstance(touch_targets, dict) and touch_targets:
+            css_vars["touch-target-min-size"] = touch_targets.get("min_size", "44px")
+
+        if css_vars:
+            css_content = self.code_generator.generate_css_variables(css_vars)
+            a11y_css_path = "src/styles/accessibility.css"
+            self.file_manager.create_file(
+                a11y_css_path, css_content, reason="Implement accessibility tokens"
+            )
+            self.report.files_created.append(a11y_css_path)
+
+        checklist_lines = ["# Accessibility checklist (from design_execution_planner)", ""]
+        checklist_lines.append(
+            f"- [{'x' if accessibility.get('semantic_html') else ' '}] Use semantic HTML elements"
+        )
+        checklist_lines.append(
+            f"- [{'x' if accessibility.get('keyboard_navigation') else ' '}] Full keyboard navigation support"
+        )
+        checklist_lines.append(
+            f"- [{'x' if accessibility.get('reduced_motion') else ' '}] Respect prefers-reduced-motion"
+        )
+        checklist_lines.append(
+            "- [ ] ARIA labels reviewed per component (not auto-verifiable from the plan)"
+        )
+        checklist_lines.append(
+            "- [ ] Screen reader behavior tested (not auto-verifiable from the plan)"
+        )
+        checklist_lines.append(
+            "- [ ] Form accessibility reviewed, if the project has forms"
+        )
+
+        checklist_path = "ACCESSIBILITY_CHECKLIST.md"
+        self.file_manager.create_file(
+            checklist_path, "\n".join(checklist_lines), reason="Document accessibility plan"
+        )
+        self.report.files_created.append(checklist_path)
+
     def _handle_performance(self, design_build_plan: Dict[str, Any]):
-        """Handle performance optimization"""
+        """
+        Handle performance optimization.
+
+        performance_plan comes from design_execution_planner's
+        PerformancePlan: image optimization, code splitting, and font
+        loading strategy dicts. These are project-level configuration
+        decisions, not code that inserts itself into arbitrary components
+        - writes them as a checklist/config-reference file a human or a
+        later automated step can act on, rather than guessing at
+        framework-specific config file edits without knowing the build
+        tool in use.
+        """
         performance = design_build_plan.get("performance", {})
-        
-        if performance:
-            # Implement performance optimizations
-            pass
+
+        if not performance:
+            return
+
+        lines = ["# Performance plan (from design_execution_planner)", ""]
+
+        image_opt = performance.get("image_optimization", {})
+        if isinstance(image_opt, dict) and image_opt:
+            formats = ", ".join(image_opt.get("formats", []))
+            lines.append(f"## Image optimization")
+            lines.append(f"- Formats: {formats or 'not specified'}")
+            lines.append(f"- Lazy loading: {image_opt.get('lazy_loading', False)}")
+            lines.append(f"- Quality target: {image_opt.get('quality', 'not specified')}")
+            lines.append("")
+
+        code_splitting = performance.get("code_splitting", {})
+        if isinstance(code_splitting, dict) and code_splitting:
+            lines.append(f"## Code splitting")
+            lines.append(f"- Strategy: {code_splitting.get('strategy', 'not specified')}")
+            lines.append(f"- Prefetch: {code_splitting.get('prefetch', False)}")
+            lines.append("")
+
+        font_loading = performance.get("font_loading", {})
+        if isinstance(font_loading, dict) and font_loading:
+            lines.append(f"## Font loading")
+            lines.append(f"- Strategy: {font_loading.get('strategy', 'not specified')}")
+            lines.append(f"- Preload: {font_loading.get('preload', False)}")
+            lines.append("")
+
+        if len(lines) <= 2:
+            return
+
+        perf_path = "PERFORMANCE_PLAN.md"
+        self.file_manager.create_file(
+            perf_path, "\n".join(lines), reason="Document performance plan"
+        )
+        self.report.files_created.append(perf_path)
     
     def _run_validations(self):
         """Run all validations"""

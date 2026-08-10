@@ -132,14 +132,22 @@ de adaptación en el punto de integración — deliberado, para no reescribir la
 lógica interna de `design_execution_planner` ni de `site_builder` sin tests
 propios que protejan esos cambios.
 
-## Fase 2B — Lo que Fase 2 dejó pendiente (nuevo, no iniciada)
+## Fase 2B — Lo que Fase 2 dejó pendiente
 
-- [ ] `site_builder` tiene 7 de 13 métodos `_handle_*` sin implementar
-      (`typography`, `layout`, `navigation`, `interactions`, `responsive`,
-      `accessibility`, `performance` son `if x: pass`). El pipeline ya no
-      crashea, pero la mayoría del trabajo de diseño calculado por
-      `redesign_intelligence`/`design_execution_planner` todavía no se
-      escribe a código real.
+- [x] Implementados 5 de los 7 métodos `_handle_*` que estaban vacíos:
+      `_handle_typography`, `_handle_layout`, `_handle_responsive`,
+      `_handle_accessibility`, `_handle_performance` — cada uno ahora
+      escribe archivos reales (CSS de variables, checklists en Markdown)
+      a partir de los datos que sí produce `design_execution_planner`.
+      Verificado: una corrida real ahora crea **10 archivos** (antes: 1).
+      `_handle_navigation` y `_handle_interactions` siguen vacíos a
+      propósito — no hay ningún campo `navigation`/`interactions` en
+      `DesignBuildPlan.to_dict()` todavía, así que no hay datos que
+      procesar (ver el punto de `planner.py` más abajo).
+- [x] Bug encontrado y arreglado en el propio proceso: dos tareas del plan
+      ("Hero section" y "Content sections") mapeaban ambas a la palabra
+      clave `"sections"`, causando que `_handle_sections` corriera dos
+      veces y duplicara cada componente. Deduplicado en el adaptador.
 - [ ] `design_execution_planner/planner.py`'s `_generate_sections()` usa
       3 secciones hardcodeadas (hero, trust, ...) en vez de generar
       dinámicamente a partir del `redesign_strategy` y los planners
@@ -151,6 +159,10 @@ propios que protejan esos cambios.
       vacío — los recursos seleccionados por `design_resource_hub` (ej. qué
       framework CSS usar) nunca llegan al plan de build. (Encontrado por
       Qwen en su sesión paralela, ver Log.)
+- [ ] Ningún campo `navigation`/`interactions` existe en `DesignBuildPlan` —
+      hace falta agregarlos a `planner.py` (con datos reales, no vacíos)
+      antes de que `_handle_navigation`/`_handle_interactions` tengan algo
+      que hacer.
 - [ ] Fusionar `pipeline-orchestrator-and-fixes` a `main`
 - [ ] Crear la carpeta `projects/` como destino estándar de los sitios que
       el agente genere/modifique
@@ -271,6 +283,18 @@ propios que protejan esos cambios.
   `git branch -r` de nuevo antes de la próxima fusión para ver si ya apareció
   la rama de Qwen, y si aparece, compararla contra esta antes de fusionar
   cualquiera de las 2.
+- **2026-08-09** — Fase 2B iniciada: implementados 5 de los 7 métodos
+  `_handle_*` vacíos de `site_builder` (`typography`, `layout`,
+  `responsive`, `accessibility`, `performance`), cada uno escribiendo
+  archivos reales a partir de los datos ya calculados por
+  `design_execution_planner`. Encontrado y arreglado un bug de duplicación
+  (dos tareas del plan mapeaban a la misma palabra clave `"sections"`,
+  corriendo el paso dos veces). Verificado: una corrida real ahora produce
+  10 archivos (antes de Fase 2B: 1). `_handle_navigation`/`_handle_interactions`
+  siguen vacíos porque `DesignBuildPlan` no tiene esos campos todavía — no
+  es un bug de site_builder, es que `planner.py` nunca los genera. 178
+  tests siguen en verde (5/5 de integración incluidos). Sin fusionar
+  todavía — sigue pendiente la alerta de coordinación con Qwen de arriba.
 
 ---
 

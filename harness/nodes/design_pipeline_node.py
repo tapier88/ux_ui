@@ -241,7 +241,21 @@ class DesignPipelineNode(BaseNode):
             else:
                 unmapped_steps.append(raw_step)
 
-        adapted["implementation_order"] = mapped_steps
+        # Multiple free-text tasks can map to the same dispatcher keyword
+        # (e.g. both "Hero section" and "Content sections" map to
+        # "sections"). Running the same step twice duplicates output
+        # (site_builder would build every section twice) without adding
+        # any value, since each _handle_* method already processes the
+        # full corresponding list from design_build_plan in one pass.
+        # Dedupe while preserving first-seen order.
+        seen = set()
+        deduped_steps = []
+        for keyword in mapped_steps:
+            if keyword not in seen:
+                seen.add(keyword)
+                deduped_steps.append(keyword)
+
+        adapted["implementation_order"] = deduped_steps
         adapted["_unmapped_steps"] = unmapped_steps
 
         # 3. section_builder.build_section() expects section["layout"] and
