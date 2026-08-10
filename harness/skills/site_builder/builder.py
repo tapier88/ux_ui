@@ -13,6 +13,9 @@ from .models import (
     AIQualityResult,
     DesignFidelityReport,
     CheckpointInfo,
+    BuildError,
+    ErrorType,
+    ErrorSeverity,
 )
 
 from .project_inspector import ProjectInspector
@@ -108,11 +111,11 @@ class SiteBuilder:
         except Exception as e:
             # Handle error
             self.report.build_status = ValidationStatus.FAIL
-            self.report.errors.append({
-                "error_type": "unknown",
-                "message": str(e),
-                "severity": "critical",
-            })
+            self.report.errors.append(BuildError(
+                error_type=ErrorType.UNKNOWN,
+                message=str(e),
+                severity=ErrorSeverity.CRITICAL,
+            ))
             
             # Attempt rollback
             rollback_result = self.rollback_manager.rollback()

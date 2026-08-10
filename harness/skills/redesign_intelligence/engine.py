@@ -1399,13 +1399,36 @@ class RedesignIntelligenceEngine:
 def redesign_intelligence_skill(profile: Dict[str, Any]) -> Dict[str, Any]:
     """
     Skill function for redesign intelligence
-    
+
     Args:
         profile: WebsiteDesignProfile as dictionary
-        
+
     Returns:
         Dictionary representation of RedesignStrategy
     """
+    profile = _normalize_profile(profile)
     engine = RedesignIntelligenceEngine()
     strategy = engine.analyze(profile)
     return strategy.to_dict()
+
+
+def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    website_intelligence's WebsiteDesignProfile.to_dict() sets a
+    sub-section to None (not just omits the key) when that aspect of
+    the site wasn't detected - e.g. {"typography": None} rather than
+    leaving "typography" out entirely. Every engine here calls
+    profile.get("<section>", {}) expecting a dict back, but .get()'s
+    default only kicks in when the key is *missing*, not when its
+    value is explicitly None - so a real profile from an inspected
+    project (as opposed to a hand-built test fixture) crashes every
+    engine on its first .get() call inside that section.
+
+    This normalizes any such None sections to {} once, at the single
+    entry point, instead of patching every .get() call across the ~13
+    engine classes below.
+    """
+    if not isinstance(profile, dict):
+        return {}
+    return {k: (v if v is not None else {}) for k, v in profile.items()}
+
