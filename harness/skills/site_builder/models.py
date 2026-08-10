@@ -398,7 +398,12 @@ class BuildReport:
             "design_fidelity": self.design_fidelity.to_dict() if self.design_fidelity else None,
             "rollback_status": self.rollback_status.to_dict() if self.rollback_status else None,
             "warnings": self.warnings,
-            "errors": [e.to_dict() for e in self.errors],
+            # Some internal error paths append plain dicts rather than
+            # BuildError objects (e.g. the top-level exception handler
+            # in SiteBuilder.execute_build) — handle both defensively
+            # rather than crashing report serialization on the one path
+            # that most needs to be reportable: a failed build.
+            "errors": [e.to_dict() if hasattr(e, "to_dict") else e for e in self.errors],
             "checkpoints": [c.to_dict() for c in self.checkpoints],
         }
 

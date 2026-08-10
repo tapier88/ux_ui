@@ -84,9 +84,22 @@ Si el runtime tiene bugs de estado/timeout/cancelación, un agente autónomo que
 **Nota de diseño (0.3):** por defecto `max_steps=1000`. Como la Fase 7 (loops reales) todavía no existe, hoy esto solo protege contra bugs de enrutamiento; cuando se implementen nodos `LOOP` con lógica real, cada uno deberá definir su propia condición de terminación además de este límite global.
 
 ### FASE 1 — Orquestación end-to-end
-- [ ] 1.1 Crear nodos de grafo para cada skill (hoy solo existe `git_persistence_node.py`)
-- [ ] 1.2 Construir el grafo maestro: Website Intelligence → Redesign Intelligence → Design Resource Hub → Design Execution Planner → Site Builder → Git Persistence
-- [ ] 1.3 Probar el pipeline completo contra un proyecto real de ejemplo
+- [x] 1.1 Crear nodos de grafo para cada skill — `harness/nodes/design_pipeline_nodes.py`: `WebsiteIntelligenceNode`, `RedesignIntelligenceNode`, `DesignResourceHubNode`, `DesignExecutionPlannerNode`, `GovernanceGateNode` (nodo condicional real — enruta a `SiteBuilderNode` solo si `passed=True`, si no corta directo a END), `SiteBuilderNode`.
+- [x] 1.2 Construir el grafo maestro — `build_design_pipeline_graph()`: Website Intelligence → Redesign Intelligence → Design Resource Hub → Design Execution Planner → Governance Gate → (aprobado: Site Builder | bloqueado: END). Grafo validado (`graph.validate()` pasa, sin ciclos).
+- [x] 1.3 Probar el pipeline completo contra un proyecto real de ejemplo — corrido de punta a punta contra un proyecto sintético en disco, ambos caminos probados: aprobado (genera archivos reales válidos) y bloqueado (el proyecto queda intacto, `SiteBuilder` nunca se ejecuta). Tests: `harness/tests/test_design_pipeline_nodes.py` (12 tests).
+
+**Lo que de verdad valió la pena de esta fase: correr los skills juntos por primera vez destapó 7 bugs de integración reales** que ningún test aislado podía atrapar porque cada skill se probaba con datos de entrada inventados a mano, nunca con la salida real del skill anterior. Todos arreglados:
+1. `website_intelligence` devuelve secciones anidadas en `None` explícito (no ausentes); `redesign_intelligence` asumía ausencia → normalización agregada en `RedesignIntelligenceEngine.analyze()`.
+2. `website_intelligence` no tiene `brand`/`colors` a nivel raíz (eso es trabajo de Fase 2B, que no existe todavía) → adapter temporal en `RedesignIntelligenceNode` que deriva el color dominante del CSS real como sustituto, marcado explícitamente para borrar cuando exista Brand DNA Extractor.
+3. `implementation_order` de `DesignExecutionPlanner` es una lista de tareas descriptivas ("Hero section", "Quality validation"); `SiteBuilder` esperaba IDs cortos fijos ("sections", "validation") → traductor por palabras clave en `SiteBuilderNode._translate_implementation_order()`.
+4. `BuildReport.to_dict()` no toleraba errores guardados como dict crudo (el manejador de excepciones de `execute_build` los agrega así) → arreglado defensivamente.
+5. `generate_css_variables()` volcaba el `repr()` de Python de un dict anidado como valor CSS (`--colors: {'primary': '#000'};`, CSS inválido) → aplanado recursivo real implementado en `code_generator.py`.
+6. `SectionBuilder` esperaba `layout`/`motion`/`responsive`/`components` de cada sección como dicts estructurados; el planner los emite como strings/listas simples (`"layout": "grid"`, `"motion": ["fade-in"]`) → normalizado en `section_builder.py`.
+7. Un f-string mal escapado generaba JSX roto (`NameError: className`) al construir componentes React → corregido.
+
+Además: `SiteBuilderNode` ahora hace fallar el nodo (no solo reporta en un dict) si `build_status != PASS`, para que el runtime marque la tarea como fallida — mismo principio que el fix CRITICAL-005 de Fase 0, aplicado también a nivel de pipeline.
+
+**Deuda técnica anotada, no bloqueante:** `DesignExecutionPlanner._apply_resource_report()` es un `pass` vacío — los recursos seleccionados por Design Resource Hub (ej. Tailwind) todavía no llegan al plan de build como dependencias reales. Las señales del `GovernanceGate` (brand_alignment, accessibility, etc.) siguen siendo heurísticas derivadas de lo que hay disponible hoy, no mediciones completas — ver Fase 2B-bis pendiente.
 
 ### FASE 2 — Skill de Prospección (Lead Finder)
 Nuevo skill: buscar sitios web candidatos (tipografía anticuada, diseño desactualizado, señales de necesitar el servicio).

@@ -1131,7 +1131,18 @@ class RedesignIntelligenceEngine:
         # Handle empty or incomplete profiles
         if not profile:
             return self._create_empty_profile_strategy()
-        
+
+        # Normalize: WebsiteDesignProfile.to_dict() (website_intelligence)
+        # sets unavailable nested sections to None explicitly, not
+        # absent — e.g. {"typography": None} rather than omitting the
+        # key. dict.get(key, {}) only falls back to {} when the key is
+        # MISSING, not when it's present with value None, so every
+        # sub-engine below that does profile.get("x", {}).get(...) would
+        # crash on a real profile with unavailable sections. This is the
+        # integration boundary fix; each sub-engine still uses
+        # .get(key, {}) as before.
+        profile = {k: (v if v is not None else {}) for k, v in profile.items()}
+
         # Run all analysis engines
         preserve_decisions = self.preserve_engine.analyze(profile)
         remove_decisions = self.remove_engine.analyze(profile)

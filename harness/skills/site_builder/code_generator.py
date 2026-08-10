@@ -86,13 +86,41 @@ export default {name};
         """Generate Tailwind class string"""
         return " ".join(classes)
     
-    def generate_css_variables(self, tokens: Dict[str, str]) -> str:
-        """Generate CSS custom properties (variables)"""
+    def generate_css_variables(self, tokens: Dict[str, Any]) -> str:
+        """Generate CSS custom properties (variables) from a (possibly
+        deeply nested) design tokens dict, e.g. {"colors": {"primary":
+        "#000"}, "typography": {"h1": {"size": "3rem"}}} becomes
+        --colors-primary: #000; --typography-h1-size: 3rem; etc.
+
+        Previously this assumed a flat Dict[str, str] and simply
+        interpolated whatever value it got directly into the CSS value
+        position — when handed the real (nested) design_tokens dict
+        produced by DesignExecutionPlanner, that meant writing Python's
+        dict repr as a CSS value (invalid CSS). Recursing here fixes it
+        at the point of generation rather than requiring every caller to
+        pre-flatten its tokens.
+        """
+        flat_vars = self._flatten_tokens(tokens)
         css = ":root {\n"
-        for name, value in tokens.items():
+        for name, value in flat_vars.items():
             css += f"  --{name}: {value};\n"
         css += "}\n"
         return css
+
+    @classmethod
+    def _flatten_tokens(cls, tokens: Dict[str, Any], prefix: str = "") -> Dict[str, str]:
+        """Recursively flatten a nested token dict into
+        {css-custom-property-name: css-value} pairs."""
+        flat: Dict[str, str] = {}
+        for key, value in tokens.items():
+            css_key = f"{prefix}-{key}" if prefix else str(key)
+            if isinstance(value, dict):
+                flat.update(cls._flatten_tokens(value, prefix=css_key))
+            elif isinstance(value, (list, tuple)):
+                flat[css_key] = ", ".join(str(v) for v in value)
+            else:
+                flat[css_key] = str(value)
+        return flat
     
     def generate_tailwind_config(self, config: Dict[str, Any]) -> str:
         """Generate Tailwind configuration"""

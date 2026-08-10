@@ -19,16 +19,36 @@ class SectionBuilder:
         """Build a section from a SectionPlan"""
         section_id = section_plan.get("id", "section")
         layout = section_plan.get("layout", {})
+        if isinstance(layout, str):
+            # DesignExecutionPlanner emits a plain layout label (e.g.
+            # "standard", "grid", "centered") rather than a structured
+            # object — normalize here so a string label is a valid
+            # SectionPlan just like a full {"type": ..., ...} dict.
+            layout = {"type": layout}
         content = section_plan.get("content", {})
         components = section_plan.get("components", [])
+        components = [
+            comp if isinstance(comp, dict) else {"name": self._to_component_name(comp)}
+            for comp in components
+        ]
         assets = section_plan.get("assets", [])
         background = section_plan.get("background", {})
         typography = section_plan.get("typography", {})
         motion = section_plan.get("motion", {})
+        if isinstance(motion, list):
+            # DesignExecutionPlanner emits motion as a plain list of
+            # effect names (e.g. ["fade-in", "slide-up"]) rather than a
+            # structured {"enabled": bool, ...} object.
+            motion = {"enabled": bool(motion), "effects": motion}
         responsive_behavior = section_plan.get("responsive_behavior", {})
         
         # Generate section component
         section_name = section_plan.get("name", f"Section{section_id.title().replace('-', '')}")
+        # Section names from DesignExecutionPlanner can contain spaces
+        # (e.g. "Trust Indicators") — not valid as a bare .tsx filename
+        # or JS component identifier on every platform/bundler. Reuse
+        # the same slug->PascalCase normalization applied to components.
+        section_name = self._to_component_name(section_name)
         
         # Create section code based on layout type
         layout_type = layout.get("type", "container")
@@ -107,7 +127,7 @@ interface {name}Props {{
   className?: string;
 }}
 
-export const {name}: React.FC<{name}Props> = ({className}) => {{
+export const {name}: React.FC<{name}Props> = ({{ className }}) => {{
   return (
     <section className="{name.lower()} {' '.join(all_classes)} ${{className || ''}}">
       {self._generate_section_inner(content_html, components, motion_props)}
@@ -176,21 +196,35 @@ export default {name};
     def _build_responsive_classes(self, responsive: Dict[str, Any]) -> List[str]:
         """Build responsive behavior classes"""
         classes = []
-        
+
+        # DesignExecutionPlanner emits each breakpoint as a plain string
+        # shorthand (e.g. {"mobile": "stack"}) rather than a structured
+        # {"stack": True, "hidden": False, ...} object — normalize each
+        # breakpoint the same way regardless of which shorthand form it
+        # arrives in, instead of assuming a dict everywhere.
+        def _as_dict(value: Any) -> Dict[str, Any]:
+            if isinstance(value, dict):
+                return value
+            if isinstance(value, str):
+                # A bare string names the one behavior it requests
+                # (e.g. "stack", "hidden") — treat it as that flag.
+                return {value: True}
+            return {}
+
         # Mobile
-        mobile = responsive.get("mobile", {})
+        mobile = _as_dict(responsive.get("mobile", {}))
         if mobile.get("hidden", False):
             classes.append("hidden")
         if mobile.get("stack", False):
             classes.extend(["flex", "flex-col"])
         
         # Tablet
-        tablet = responsive.get("tablet", {})
+        tablet = _as_dict(responsive.get("tablet", {}))
         if tablet.get("cols"):
             classes.append(f"md:grid-cols-{tablet['cols']}")
         
         # Desktop
-        desktop = responsive.get("desktop", {})
+        desktop = _as_dict(responsive.get("desktop", {}))
         if desktop.get("cols"):
             classes.append(f"lg:grid-cols-{desktop['cols']}")
         
@@ -251,3 +285,12 @@ export default {name};
     def get_created_sections(self) -> List[str]:
         """Get list of created section names"""
         return self.created_sections
+
+    @staticmethod
+    def _to_component_name(raw: str) -> str:
+        """Turn a plain component-name string like 'cta-button' or
+        'hero-image' into a PascalCase component name ('CtaButton',
+        'HeroImage') — DesignExecutionPlanner emits component slugs as
+        plain strings, not {"name": ...} objects."""
+        parts = str(raw).replace("_", "-").replace(" ", "-").split("-")
+        return "".join(p.capitalize() for p in parts if p) or "Component"
