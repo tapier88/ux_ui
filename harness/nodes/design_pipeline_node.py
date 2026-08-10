@@ -135,8 +135,22 @@ class DesignPipelineNode(BaseNode):
         try:
             from harness.skills.site_builder import SiteBuilder
 
+            # site_builder.execute_build() expects a plain dict (its own
+            # _handle_* methods call design_build_plan.get(...) throughout),
+            # not the DesignBuildPlan object design_execution_planner
+            # returns. Also bridge the naming mismatch between the two
+            # skills: design_execution_planner emits "typography_plan",
+            # "layout_plan", "performance_plan", "accessibility_plan",
+            # while site_builder reads "typography", "layout",
+            # "performance", "accessibility" (no suffix). Today most of
+            # those _handle_* methods are unimplemented stubs on the
+            # site_builder side (see PLAN.md), so this bridge doesn't
+            # change behavior yet - but it's the correct contract so the
+            # data is there once those methods are actually implemented.
+            plan_dict = self._adapt_build_plan_for_site_builder(build_plan.to_dict())
+
             builder = SiteBuilder(project_path)
-            report = builder.execute_build(build_plan)
+            report = builder.execute_build(plan_dict)
             stages["site_builder"] = {"status": "completed"}
         except Exception as e:
             return self._failure(state.task_id, "site_builder", e, stages)
@@ -148,6 +162,88 @@ class DesignPipelineNode(BaseNode):
             "stages": stages,
             "report": report.to_dict(),
         }
+
+    @staticmethod
+    def _adapt_build_plan_for_site_builder(plan_dict: dict) -> dict:
+        """
+        Bridge two mismatches between design_execution_planner's
+        DesignBuildPlan.to_dict() output and what site_builder's
+        execute_build() actually consumes:
+
+        1. Key naming: design_execution_planner emits "typography_plan",
+           "layout_plan", "performance_plan", "accessibility_plan"; site_builder
+           reads "typography", "layout", "performance", "accessibility"
+           (no suffix). Non-destructive: original *_plan keys are kept too.
+
+        2. implementation_order format (the bigger one): site_builder's
+           execute_build() loops `for step in design_build_plan["implementation_order"]:
+           self._execute_step(step, ...)`, and _execute_step does
+           `if step == "dependencies": ...`comparing step directly against
+           plain keyword strings. But design_execution_planner's
+           implementation_order is a list of ImplementationStep *dicts*
+           (`{"order": 1, "task": "Project setup", ...}`) - a dict can never
+           equal a string, so every branch of that if/elif chain was always
+           False and execute_build() silently did nothing for any plan,
+           regardless of the key-naming fix above. This maps each step's
+           free-text "task" description to the keyword site_builder's
+           dispatcher expects via substring matching, and replaces
+           implementation_order with that flat list of keywords. Steps that
+           don't match any known keyword are dropped from the executable
+           order but kept under "_unmapped_steps" for visibility/debugging
+           instead of silently vanishing.
+        """
+        key_aliases = {
+            "typography_plan": "typography",
+            "layout_plan": "layout",
+            "performance_plan": "performance",
+            "accessibility_plan": "accessibility",
+        }
+        adapted = dict(plan_dict)
+        for source_key, target_key in key_aliases.items():
+            if source_key in plan_dict and target_key not in plan_dict:
+                adapted[target_key] = plan_dict[source_key]
+
+        keyword_hints = {
+            "dependencies": ["depend"],
+            "tokens": ["token"],
+            "global_styles": ["global style", "global css"],
+            "typography": ["typograph"],
+            "layout": ["layout"],
+            "navigation": ["navigation", "nav bar", "nav menu"],
+            "sections": ["section"],
+            "components": ["component"],
+            "assets": ["asset", "image", "icon"],
+            "interactions": ["interaction", "motion", "animation"],
+            "responsive": ["responsive"],
+            "accessibility": ["accessib"],
+            "performance": ["performance"],
+            "validation": ["valid"],
+        }
+
+        raw_steps = plan_dict.get("implementation_order", [])
+        mapped_steps = []
+        unmapped_steps = []
+        for raw_step in raw_steps:
+            task_text = ""
+            if isinstance(raw_step, dict):
+                task_text = str(raw_step.get("task", "")).lower()
+            elif isinstance(raw_step, str):
+                task_text = raw_step.lower()
+
+            matched_keyword = None
+            for keyword, hints in keyword_hints.items():
+                if any(hint in task_text for hint in hints):
+                    matched_keyword = keyword
+                    break
+
+            if matched_keyword:
+                mapped_steps.append(matched_keyword)
+            else:
+                unmapped_steps.append(raw_step)
+
+        adapted["implementation_order"] = mapped_steps
+        adapted["_unmapped_steps"] = unmapped_steps
+        return adapted
 
     @staticmethod
     def _failure(task_id: str, stage: str, error: Exception, stages: dict) -> dict:
