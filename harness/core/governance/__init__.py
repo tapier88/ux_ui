@@ -1,22 +1,21 @@
 """
 Governance — Elevation Scorer + Gate
 
-Direct translation of the trading system's "confluence scoring" pattern
-(see ARCHITECTURE_PRINCIPLES.md §5) to design quality control:
-
-Trading:  Gemini BUY (+30) + M15 bullish (+25) + H1 bullish (+20) +
-          spread ok (+15) + confidence 0.92 (+15) = 110 → only trade if
-          score >= 80.
+Design quality gate for this web-design agent. The scoring/threshold
+pattern here (weighted signals, only proceed above a threshold, hard
+floor per dimension) follows a general engineering principle documented
+in ARCHITECTURE_PRINCIPLES.md §5: a model's raw creative output is never
+executed directly — it always passes through a deterministic scoring
+gate first.
 
 Design:   brand_alignment (+30) + accessibility (+20) + visual_craft (+20)
           + performance (+15) + seo_impact (+10) + originality (+5)
           = weighted score → only ship if score >= threshold.
 
-Just like the trading bot never executes an LLM's raw BUY/SELL signal
-without this gate, no skill in this harness should hand a redesign to
-the client (or to Site Builder for a real commit) without passing
-through GovernanceGate.evaluate(). This is a hard architectural rule,
-not a suggestion — see ARCHITECTURE_PRINCIPLES.md §1 and §5.
+No skill in this harness should hand a redesign to the client (or to
+Site Builder for a real commit) without passing through
+GovernanceGate.evaluate(). This is a hard architectural rule, not a
+suggestion — see ARCHITECTURE_PRINCIPLES.md §1 and §5.
 """
 from dataclasses import dataclass, field
 from typing import Dict, Optional, List
@@ -25,9 +24,9 @@ from harness.core.events import EventType, emit_event
 from harness.memory import MemoryCategory, MemoryStore, get_memory_store
 
 
-# Default weights. Mirrors the trading bot's SCORING_WEIGHTS pattern:
-# configurable, not hardcoded logic. Callers should treat this as the
-# starting point, not a fixed constant — see ARCHITECTURE_PRINCIPLES.md §6.
+# Default weights — configurable, not hardcoded logic. Callers should
+# treat this as the starting point, not a fixed constant — see
+# ARCHITECTURE_PRINCIPLES.md §6.
 DEFAULT_ELEVATION_WEIGHTS: Dict[str, float] = {
     "brand_alignment": 30.0,   # does it still feel like THIS client's brand?
     "accessibility": 20.0,     # WCAG contrast, semantic structure, focus states
@@ -38,10 +37,9 @@ DEFAULT_ELEVATION_WEIGHTS: Dict[str, float] = {
 }
 
 # A signal below this value is treated as a hard fail for that dimension,
-# regardless of the total weighted score — e.g. you cannot buy your way
-# out of a broken contrast ratio with a great color palette elsewhere.
-# Mirrors the trading bot's dynamic spread filter (§ "Filtro de Spread
-# Dinámico"): some conditions block the trade outright, no averaging.
+# regardless of the total weighted score — e.g. a broken contrast ratio
+# cannot be offset by a great color palette elsewhere. Some conditions
+# block outright, with no averaging — see ARCHITECTURE_PRINCIPLES.md §5.
 HARD_FAIL_FLOOR = 40.0
 
 
@@ -97,7 +95,8 @@ class ElevationScorer:
             if signal is None:
                 # Missing signal is treated as 0 — an unmeasured dimension
                 # must never silently inflate the score. Mirrors the
-                # trading bot's HOLD-on-missing-data caution.
+                # missing-data caution — an unmeasured dimension defaults to failing,
+                # never to a free pass.
                 signal_score = 0.0
                 hard_fails.append(f"missing signal: {name}")
             else:
@@ -128,9 +127,8 @@ class GovernanceGate:
     """The gate a redesign must pass before it can go to the client or
     be committed by Site Builder. See ARCHITECTURE_PRINCIPLES.md §1, §5.
 
-    This mirrors the trading bot's rule: score >= threshold to act, PLUS
-    no individual hard-fail dimension, mirroring the dynamic spread
-    filter that blocks a trade outright regardless of overall score.
+    A redesign must clear BOTH the weighted score threshold AND have no
+    individual hard-fail dimension — see ARCHITECTURE_PRINCIPLES.md §5.
     """
 
     def __init__(

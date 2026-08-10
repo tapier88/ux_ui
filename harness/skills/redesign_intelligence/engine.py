@@ -6,6 +6,7 @@ Transforms WebsiteDesignProfile into RedesignStrategy
 from typing import Dict, Any, Optional, List
 import random
 
+from .color_intelligence import PaletteGenerator, normalize_hex
 from .models import (
     RedesignStrategy,
     PreserveDecision,
@@ -573,8 +574,21 @@ class TypographyStrategyEngine:
 
 
 class ColorStrategyEngine:
-    """Generates color strategy recommendations"""
-    
+    """Generates color strategy recommendations.
+
+    When the profile already has a full, deliberate palette, this is
+    preserved as-is (brand preservation always wins — see
+    ARCHITECTURE_PRINCIPLES.md §12). When secondary/accent/semantic
+    colors are missing, they are no longer left as a text suggestion
+    ("define a color that reflects brand identity") — they're generated
+    from the real brand primary color using PaletteGenerator, which
+    applies actual color theory (harmony rules, WCAG-verified contrast,
+    a brand-anchored tint/shade ramp). See color_intelligence.py.
+    """
+
+    def __init__(self, palette_generator: Optional[PaletteGenerator] = None):
+        self.palette_generator = palette_generator or PaletteGenerator()
+
     def analyze(self, profile: Dict[str, Any]) -> ColorStrategy:
         """Generate color strategy based on profile"""
         
@@ -589,27 +603,69 @@ class ColorStrategyEngine:
         primary = existing_colors.get("primary")
         secondary = existing_colors.get("secondary")
         accent = existing_colors.get("accent")
-        
-        if primary:
+        background = existing_colors.get("background")
+        foreground = existing_colors.get("foreground")
+        muted = existing_colors.get("muted")
+        semantic = existing_colors.get("semantic", {})
+        primary_ramp: Dict[str, str] = {}
+
+        has_full_palette = all([secondary, accent, background, foreground, muted, semantic])
+
+        if primary and not has_full_palette:
+            # This is the real work: build a complete, accessible palette
+            # outward from the one color we know is genuinely the
+            # client's brand — instead of leaving gaps or generic hex
+            # defaults for a human to fill in later.
+            try:
+                normalized_primary = normalize_hex(primary)
+                generated = self.palette_generator.generate(normalized_primary)
+
+                secondary = secondary or generated.secondary
+                accent = accent or generated.accent
+                background = background or generated.background
+                foreground = foreground or generated.foreground
+                muted = muted or generated.muted
+                semantic = semantic or generated.semantic_colors
+                primary_ramp = generated.primary_ramp
+
+                recommendations.append(
+                    f"Generated an extended palette from the brand primary "
+                    f"color ({normalized_primary}) using {generated.harmony_used} "
+                    f"harmony — kept the brand color exactly as-is and built "
+                    f"secondary/accent/neutrals around it."
+                )
+                recommendations.extend(generated.notes)
+                accessibility_pct = generated.accessibility_score()
+                recommendations.append(
+                    f"Generated palette accessibility: {accessibility_pct:.0f}% "
+                    f"of checked color pairs meet WCAG AA contrast."
+                )
+            except ValueError:
+                recommendations.append(
+                    f"Primary color '{primary}' is not a valid hex color — "
+                    f"could not generate an extended palette from it."
+                )
+        elif primary:
             recommendations.append(f"Maintain primary brand color ({primary}) for consistency")
         else:
-            recommendations.append("Define a primary color that reflects brand identity")
+            recommendations.append(
+                "No brand primary color was found in the profile — Brand DNA "
+                "Extractor must supply one before a real palette can be "
+                "generated (see ROADMAP.md FASE 2B)."
+            )
         
-        if not existing_colors.get("semantic"):
+        if not semantic:
             recommendations.append("Establish semantic colors for success, warning, error, and info states")
-        
-        # Contrast check
-        if not existing_colors.get("contrast_tested", True):
-            recommendations.append("Test all color combinations for WCAG AA compliance")
         
         return ColorStrategy(
             primary=primary,
             secondary=secondary,
             accent=accent,
-            background=existing_colors.get("background", "#FFFFFF"),
-            foreground=existing_colors.get("foreground", "#1A1A1A"),
-            muted=existing_colors.get("muted", "#6B7280"),
-            semantic_colors=existing_colors.get("semantic", {}),
+            background=background or "#FFFFFF",
+            foreground=foreground or "#1A1A1A",
+            muted=muted or "#6B7280",
+            primary_ramp=primary_ramp,
+            semantic_colors=semantic,
             brand_preservation=preserve_brand,
             recommendations=recommendations
         )
