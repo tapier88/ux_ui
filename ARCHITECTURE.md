@@ -1,9 +1,19 @@
-# Architecture Documentation - Harness V0.1
+# Architecture Documentation - Base Harness Engine
+
+> **Scope note:** this document covers the *base harness engine* only —
+> graph/state/runtime/events/git. It predates the 5-skill design
+> pipeline (Website Intelligence → Redesign Intelligence → Design
+> Resource Hub → Design Execution Planner → Site Builder) and the
+> governance/memory/color-intelligence layers built on top of it. For
+> the actual product pipeline and current status, start with
+> [`README.md`](./README.md) and [`ROADMAP.md`](./ROADMAP.md). This
+> document remains accurate for the engine internals described below.
 
 ## Overview
 
-This document describes the architecture of the autonomous web design agent harness (V0.1).
-The harness is built from scratch with a modular, graph-based execution engine.
+This document describes the architecture of the base harness engine:
+the modular, graph-based execution engine that every skill in the
+pipeline runs on top of.
 
 ## Design Principles
 
