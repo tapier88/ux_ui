@@ -194,6 +194,7 @@ class ColorStrategy:
     background: Optional[str] = None
     foreground: Optional[str] = None
     muted: Optional[str] = None
+    primary_ramp: Dict[str, str] = field(default_factory=dict)
     semantic_colors: Dict[str, str] = field(default_factory=dict)
     brand_preservation: bool = True
     recommendations: List[str] = field(default_factory=list)
@@ -206,6 +207,7 @@ class ColorStrategy:
             "background": self.background,
             "foreground": self.foreground,
             "muted": self.muted,
+            "primary_ramp": self.primary_ramp,
             "semantic_colors": self.semantic_colors,
             "brand_preservation": self.brand_preservation,
             "recommendations": self.recommendations

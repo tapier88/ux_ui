@@ -45,6 +45,21 @@ Graph engine, State engine, Runtime, Events, Tool/Skill registries — funcional
 - ❌ Ciclo de autonomía real: PLAN→EXECUTE→OBSERVE→EVALUATE→DECIDE (hoy es un ejecutor de workflows, no un agente que decide)
 - ❌ Documentación desactualizada (README/ARCHITECTURE describen solo V0.1 base)
 
+## 2B-bis. Gobernanza transversal (nuevo, ver ARCHITECTURE_PRINCIPLES.md)
+
+Se tradujeron 12 principios de arquitectura de un sistema de trading cuantitativo (Gold Bridge) a este agente — ver `ARCHITECTURE_PRINCIPLES.md` para el detalle completo de cada mapeo. El principio central: **el LLM/skill nunca decide solo si un rediseño está listo para el cliente**; siempre pasa por un gate determinístico de puntuación, igual que un bot de trading serio nunca ejecuta la señal cruda de un LLM sin un sistema de riesgo y scoring de por medio.
+
+- [x] Elevation Scorer + Governance Gate — `harness/core/governance/` (comentarios de código limpiados de referencias a "trading bot"; la lógica es 100% de diseño, la única referencia externa queda en `ARCHITECTURE_PRINCIPLES.md` como nota de origen de los principios)
+- [x] **Motor de teoría del color real** — `harness/skills/redesign_intelligence/color_intelligence.py`. Reemplaza el `ColorStrategyEngine` anterior, que solo repetía colores ya existentes en el perfil y sugería en texto plano "define un color de marca" cuando faltaban. Ahora: conversión HEX↔HSL, cálculo real de contraste WCAG (fórmula de luminancia relativa), generación de armonía (complementaria/análoga/triádica/split-complementaria — split-complementaria por defecto porque se ve considerada, no genérica), rampa de tintes/sombras 50-900 anclada al hue real de marca, colores semánticos (éxito/advertencia/error/info) sintonizados con la saturación de la marca en vez de copiados de un kit de UI genérico, y `ensure_contrast()` que ajusta automáticamente la claridad hasta cumplir AA en vez de solo advertir. Si el color de marca es casi neutro (baja saturación), usa estrategia monocromática en vez de forzar una armonía artificial — evita el "look genérico de IA" en marcas minimalistas.
+- [x] Tests: `harness/tests/test_color_intelligence.py` (27 tests) + integración verificada con `redesign_intelligence` (45 tests existentes siguen pasando)
+- [x] Eventos estructurados de gobernanza (`GATE_APPROVED`, `GATE_BLOCKED`, `SCORE_TOO_LOW`, `HUMAN_REVIEW_REQUIRED`) — `harness/core/events`
+- [x] Integración con `MemoryStore`: toda evaluación (aprobada o bloqueada) queda registrada — insumo para recalibrar pesos con datos reales más adelante
+- [x] Tests: `harness/tests/test_governance.py` (13 tests)
+- [ ] Conectar `GovernanceGate` como paso obligatorio antes de `Site Builder` y antes de la Fase 6 (envío al cliente) — pendiente hasta Fase 1 (orquestación end-to-end)
+- [ ] Definir las señales reales (`brand_alignment`, `accessibility`, `visual_craft`, `performance`, `seo_impact`, `originality`) como salidas medibles de cada skill existente, no como números inventados — esto depende de que Website Intelligence / Brand DNA Extractor / Design Execution Planner expongan métricas concretas (ratios de contraste reales, Core Web Vitals reales, etc.)
+- [ ] `BaseDesignJudgmentEngine`: generalizar el patrón ya existente del Qwen Adapter para que cualquier skill de "juicio creativo" sea intercambiable entre proveedores de IA (Fase 1/4)
+- [ ] `performance.json` del agente: métricas acumuladas (propuestas generadas, tasa de aprobación del gate, Elevation Score promedio, tasa de aceptación del cliente una vez exista Fase 6)
+
 ## 3. Fases de trabajo
 
 ### FASE 0 — Estabilizar la base (bloquea todo lo demás)
