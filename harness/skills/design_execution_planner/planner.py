@@ -133,9 +133,42 @@ class DesignExecutionPlanner:
         pass
     
     def _apply_resource_report(self, plan: DesignBuildPlan, report: Dict[str, Any]):
-        """Apply resource report decisions"""
-        # Resources determine which libraries will be used
-        pass
+        """
+        Apply resource report decisions.
+
+        design_resource_hub's report has a "resources_selected" list of
+        dicts ({"resource_id": "tailwind-css", "selected": True, ...}).
+        This was previously a no-op, so which libraries design_resource_hub
+        picked (Tailwind, shadcn/ui, Radix, Motion, etc.) never reached the
+        actual build plan - site_builder's dependency_manager had nothing
+        real to install. Maps each selected resource_id to its real npm
+        package name and appends those to plan.dependencies.
+
+        Not every resource_id has an installable npm package (shadcn/ui is
+        copy-pasted component code, not a package; Google Fonts is loaded
+        via a <link> tag or next/font, not npm) - those are intentionally
+        skipped here rather than guessing a wrong package name.
+        """
+        RESOURCE_TO_NPM_PACKAGE = {
+            "tailwind-css": "tailwindcss",
+            "radix-ui": "@radix-ui/react-slot",
+            "motion": "framer-motion",
+            "lucide": "lucide-react",
+            "chart-js": "chart.js",
+            "d3": "d3",
+            "three": "three",
+            "gsap": "gsap",
+            "animate-css": "animate.css",
+        }
+
+        resources_selected = report.get("resources_selected", [])
+        for resource in resources_selected:
+            if not isinstance(resource, dict) or not resource.get("selected"):
+                continue
+            resource_id = resource.get("resource_id", "")
+            package_name = RESOURCE_TO_NPM_PACKAGE.get(resource_id)
+            if package_name and package_name not in plan.dependencies:
+                plan.dependencies.append(package_name)
     
     def _handle_existing_code(self, plan: DesignBuildPlan, existing: Dict[str, Any]):
         """Handle existing code awareness and migration"""
@@ -250,6 +283,61 @@ class DesignExecutionPlanner:
             performance_priority="normal"
         )
         plan.sections.append(benefits)
+
+        # Product section
+        #
+        # home_page.sections lists 7 sections ("hero", "trust", "benefits",
+        # "product", "testimonials", "cta", "footer") but only the first 3
+        # were ever built as SectionPlan objects here - the page referenced
+        # 4 sections that never actually existed in plan.sections. Filling
+        # in the remaining 4 with the same level of detail as the first 3.
+        product = SectionPlan(
+            id="product",
+            name="Product Showcase",
+            purpose="Demonstrate the product/service in detail",
+            layout=LayoutType.SPLIT,
+            components=["product-image", "feature-list"],
+            motion=["fade-in"],
+            responsive_behavior={"mobile": "stack"},
+            performance_priority="high"
+        )
+        plan.sections.append(product)
+
+        # Testimonials section
+        testimonials = SectionPlan(
+            id="testimonials",
+            name="Testimonials",
+            purpose="Customer social proof through quotes/reviews",
+            layout=LayoutType.CENTERED,
+            components=["testimonial-card", "carousel-controls"],
+            motion=["fade-in"],
+            performance_priority="normal"
+        )
+        plan.sections.append(testimonials)
+
+        # CTA section
+        cta = SectionPlan(
+            id="cta",
+            name="Call To Action",
+            purpose="Final conversion prompt before the footer",
+            layout=LayoutType.CENTERED,
+            components=["headline", "cta-button"],
+            background={"type": "solid"},
+            accessibility={"heading_level": 2},
+            performance_priority="high"
+        )
+        plan.sections.append(cta)
+
+        # Footer section
+        footer = SectionPlan(
+            id="footer",
+            name="Footer",
+            purpose="Site-wide navigation, legal, and secondary links",
+            layout=LayoutType.STANDARD,
+            components=["footer-nav", "footer-legal", "social-links"],
+            performance_priority="low"
+        )
+        plan.sections.append(footer)
     
     def _generate_components(
         self,
