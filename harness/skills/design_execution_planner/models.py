@@ -727,6 +727,46 @@ class FilePlan:
 
 
 # =============================================================================
+# NAVIGATION PLANNING
+# =============================================================================
+
+@dataclass
+class NavigationItem:
+    """Single navigation link"""
+    label: str
+    href: str
+    section_id: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "label": self.label,
+            "href": self.href,
+            "section_id": self.section_id,
+        }
+
+
+@dataclass
+class NavigationPlan:
+    """Site navigation plan"""
+    items: List[NavigationItem] = field(default_factory=list)
+    style: str = "horizontal"
+    mobile_pattern: str = "hamburger"
+    sticky: bool = True
+    cta_label: Optional[str] = None
+    cta_href: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "items": [i.to_dict() for i in self.items],
+            "style": self.style,
+            "mobile_pattern": self.mobile_pattern,
+            "sticky": self.sticky,
+            "cta_label": self.cta_label,
+            "cta_href": self.cta_href,
+        }
+
+
+# =============================================================================
 # DESIGN BUILD PLAN (MAIN OUTPUT)
 # =============================================================================
 
@@ -750,6 +790,7 @@ class DesignBuildPlan:
     responsive_plan: ResponsivePlan = field(default_factory=ResponsivePlan)
     accessibility_plan: AccessibilityPlan = field(default_factory=AccessibilityPlan)
     performance_plan: PerformancePlan = field(default_factory=PerformancePlan)
+    navigation: NavigationPlan = field(default_factory=NavigationPlan)
     dependencies: List[str] = field(default_factory=list)
     implementation_order: List[ImplementationStep] = field(default_factory=list)
     validation_plan: List[str] = field(default_factory=list)
@@ -777,6 +818,7 @@ class DesignBuildPlan:
             "responsive_plan": self.responsive_plan.to_dict(),
             "accessibility_plan": self.accessibility_plan.to_dict(),
             "performance_plan": self.performance_plan.to_dict(),
+            "navigation": self.navigation.to_dict(),
             "dependencies": self.dependencies,
             "implementation_order": [i.to_dict() for i in self.implementation_order],
             "validation_plan": self.validation_plan,

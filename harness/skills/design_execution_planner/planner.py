@@ -7,7 +7,8 @@ from .models import (
     DesignBuildPlan, PagePlan, SectionPlan, ComponentPlan,
     LayoutType, ResourceUsage, ImplementationStep, FilePlan,
     MigrationPlan, MigrationItem, CodeAction, DesignTokens,
-    ColorTokens, TypographyTokens, SpacingTokens
+    ColorTokens, TypographyTokens, SpacingTokens,
+    NavigationPlan, NavigationItem
 )
 from .component_planner import ComponentPlanner
 from .layout_planner import LayoutPlanner
@@ -89,6 +90,7 @@ class DesignExecutionPlanner:
         
         # Generate motion plan
         plan.motion_plan = self._generate_motion_plan(design_profile, resource_report)
+        plan.navigation = self._generate_navigation(plan)
         
         # Generate responsive plan
         plan.responsive_plan = self.responsive_planner.plan_standard_responsive()
@@ -311,6 +313,33 @@ class DesignExecutionPlanner:
         motions.append(hero_motion)
         
         return motions
+
+    def _generate_navigation(self, plan: DesignBuildPlan) -> NavigationPlan:
+        """
+        Generate the site navigation from the sections that were actually
+        built (plan.sections). Previously there was no navigation field on
+        DesignBuildPlan at all, so site_builder's _handle_navigation had no
+        data to act on no matter what. Skips the hero (it's the landing
+        point, not a nav destination) and footer (footer links are handled
+        separately, not as primary nav items).
+        """
+        skip_ids = {"hero", "footer"}
+        items = [
+            NavigationItem(label=section.name, href=f"#{section.id}", section_id=section.id)
+            for section in plan.sections
+            if section.id not in skip_ids
+        ]
+
+        cta_section = next((s for s in plan.sections if s.id == "cta"), None)
+
+        return NavigationPlan(
+            items=items,
+            style="horizontal",
+            mobile_pattern="hamburger",
+            sticky=True,
+            cta_label="Get Started" if cta_section else None,
+            cta_href="#cta" if cta_section else None,
+        )
     
     def _generate_implementation_order(self) -> List[ImplementationStep]:
         """Generate implementation order"""

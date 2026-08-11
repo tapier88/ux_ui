@@ -197,6 +197,7 @@ class DesignPipelineNode(BaseNode):
             "layout_plan": "layout",
             "performance_plan": "performance",
             "accessibility_plan": "accessibility",
+            "motion_plan": "interactions",
         }
         adapted = dict(plan_dict)
         for source_key, target_key in key_aliases.items():

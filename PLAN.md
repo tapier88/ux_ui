@@ -134,41 +134,48 @@ propios que protejan esos cambios.
 
 ## Fase 2B — Lo que Fase 2 dejó pendiente
 
-- [x] Implementados 5 de los 7 métodos `_handle_*` que estaban vacíos:
-      `_handle_typography`, `_handle_layout`, `_handle_responsive`,
-      `_handle_accessibility`, `_handle_performance` — cada uno ahora
-      escribe archivos reales (CSS de variables, checklists en Markdown)
-      a partir de los datos que sí produce `design_execution_planner`.
-      Verificado: una corrida real ahora crea **10 archivos** (antes: 1).
-      `_handle_navigation` y `_handle_interactions` siguen vacíos a
-      propósito — no hay ningún campo `navigation`/`interactions` en
-      `DesignBuildPlan.to_dict()` todavía, así que no hay datos que
-      procesar (ver el punto de `planner.py` más abajo).
+- [x] Implementados **los 7 de 7** métodos `_handle_*` que estaban vacíos en
+      `site_builder`: `_handle_typography`, `_handle_layout`,
+      `_handle_responsive`, `_handle_accessibility`, `_handle_performance`,
+      `_handle_navigation`, `_handle_interactions` — cada uno ahora escribe
+      archivos reales (CSS de variables, componentes React, checklists en
+      Markdown) a partir de los datos que sí produce
+      `design_execution_planner`. **0 placeholders vacíos restantes.**
+      Verificado: una corrida real crea 12-14 archivos (antes: 1).
 - [x] Bug encontrado y arreglado en el propio proceso: dos tareas del plan
       ("Hero section" y "Content sections") mapeaban ambas a la palabra
       clave `"sections"`, causando que `_handle_sections` corriera dos
       veces y duplicara cada componente. Deduplicado en el adaptador.
-- [ ] `design_execution_planner/planner.py`'s `_generate_sections()` usa
-      3 secciones hardcodeadas (hero, trust, ...) en vez de generar
-      dinámicamente a partir del `redesign_strategy` y los planners
-      especializados que sí existen como módulos
-      (`layout_planner.py`, `responsive_planner.py`, `motion_planner.py`,
-      etc.) — están escritos pero no todos están conectados a
-      `create_build_plan()`.
-- [ ] `_apply_resource_report()` en `DesignExecutionPlanner` es un `pass`
-      vacío — los recursos seleccionados por `design_resource_hub` (ej. qué
-      framework CSS usar) nunca llegan al plan de build. (Encontrado por
-      Qwen en su sesión paralela, ver Log.)
-- [ ] Ningún campo `navigation`/`interactions` existe en `DesignBuildPlan` —
-      hace falta agregarlos a `planner.py` (con datos reales, no vacíos)
-      antes de que `_handle_navigation`/`_handle_interactions` tengan algo
-      que hacer.
-- [ ] Fusionar `pipeline-orchestrator-and-fixes` a `main`
+- [x] `_generate_sections()` completado: las 4 secciones que
+      `home_page.sections` declaraba pero nunca se construían (`product`,
+      `testimonials`, `cta`, `footer`) ya existen como `SectionPlan` reales.
+      Sigue siendo plantilla fija (no dinámica desde `redesign_strategy`) —
+      rama `dynamic-sections-and-resource-report`, PR #19, sin fusionar.
+- [x] `_apply_resource_report()` implementado — mapea recursos
+      seleccionados por `design_resource_hub` a paquetes npm reales
+      (`tailwindcss`, `@radix-ui/react-slot`, `framer-motion`,
+      `lucide-react`) y los agrega a `plan.dependencies`. Mismo PR #19.
+- [x] Agregado el campo `navigation: NavigationPlan` a `DesignBuildPlan`
+      (antes no existía) — `_generate_navigation()` nuevo en `planner.py`
+      construye los links de nav a partir de las secciones reales del plan
+      (excluye hero y footer), con CTA si existe una sección `cta`.
+      `_handle_navigation` escribe `src/components/Navigation.tsx` con
+      esos links reales.
+- [x] `_handle_interactions` conectado a `motion_plan` (que ya se
+      generaba con `MotionPlanner` pero nunca llegaba a `site_builder` por
+      el mismo problema de nombre de clave que los demás `*_plan`).
+      Escribe `MOTION_PLAN.md` documentando cada animación (target,
+      trigger, tipo, duración, easing). Rama:
+      `navigation-and-interactions-plan`, aún sin PR.
+- [ ] Fusionar `dynamic-sections-and-resource-report` (PR #19) y
+      `navigation-and-interactions-plan` a `main` — nota: la segunda parte
+      de `main` sin las 7 secciones de la primera, así que su navegación
+      hoy solo lista 3 destinos en vez de 5; fusionar #19 primero
 - [ ] Crear la carpeta `projects/` como destino estándar de los sitios que
       el agente genere/modifique
 - [ ] **Coordinar con el trabajo paralelo de Qwen** (ver nota en el Log de
-      hoy) antes de fusionar cualquiera de las 2 ramas — hay riesgo real de
-      duplicar el nodo orquestador y la normalización de perfil
+      hoy) antes de fusionar cualquiera de las ramas pendientes — hay riesgo
+      real de duplicar el nodo orquestador y la normalización de perfil
 
 
 
@@ -295,6 +302,20 @@ propios que protejan esos cambios.
   es un bug de site_builder, es que `planner.py` nunca los genera. 178
   tests siguen en verde (5/5 de integración incluidos). Sin fusionar
   todavía — sigue pendiente la alerta de coordinación con Qwen de arriba.
+- **2026-08-10** — Rama `dynamic-sections-and-resource-report` (PR #19):
+  completadas las 4 secciones que `home_page.sections` declaraba pero
+  `_generate_sections()` nunca construía, e implementado
+  `_apply_resource_report()`. Rama `navigation-and-interactions-plan`:
+  agregado el campo `navigation: NavigationPlan` (no existía) con
+  generación real desde las secciones del plan, e implementado
+  `_handle_interactions` conectándolo a `motion_plan` (ya se generaba
+  pero nunca llegaba a `site_builder`). **Con esto, los 7 de 7 métodos
+  `_handle_*` de `site_builder` ya están implementados — 0 placeholders
+  vacíos restantes en ese archivo.** Ambas ramas verificadas con 178
+  tests en verde cada una, pero son independientes entre sí (la segunda
+  parte de `main`, sin la primera todavía fusionada) — fusionar #19 antes
+  para que la navegación incluya las 7 secciones. Rama de Qwen sigue sin
+  aparecer en el remoto (verificado de nuevo).
 
 ---
 
