@@ -57,3 +57,7 @@ harness/.data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Generated project output (see projects/README.md)
+projects/*
+!projects/README.md
