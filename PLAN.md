@@ -148,27 +148,32 @@ propios que protejan esos cambios.
       ("Hero section" y "Content sections") mapeaban ambas a la palabra
       clave `"sections"`, causando que `_handle_sections` corriera dos
       veces y duplicara cada componente. Deduplicado en el adaptador.
-- [ ] `design_execution_planner/planner.py`'s `_generate_sections()` usa
-      3 secciones hardcodeadas (hero, trust, ...) en vez de generar
-      dinámicamente a partir del `redesign_strategy` y los planners
-      especializados que sí existen como módulos
-      (`layout_planner.py`, `responsive_planner.py`, `motion_planner.py`,
-      etc.) — están escritos pero no todos están conectados a
-      `create_build_plan()`.
-- [ ] `_apply_resource_report()` en `DesignExecutionPlanner` es un `pass`
-      vacío — los recursos seleccionados por `design_resource_hub` (ej. qué
-      framework CSS usar) nunca llegan al plan de build. (Encontrado por
-      Qwen en su sesión paralela, ver Log.)
+- [x] `design_execution_planner/planner.py`'s `_generate_sections()` ahora
+      construye las 7 secciones que `home_page.sections` declara (antes solo
+      3 de 7 existían realmente como `SectionPlan`: `product`,
+      `testimonials`, `cta`, `footer` estaban referenciadas pero nunca
+      creadas). Verificado: una corrida real ahora produce 14 archivos
+      (antes: 10). Nota: siguen siendo secciones de plantilla fija, no
+      generadas dinámicamente a partir de `redesign_strategy` — ese es un
+      cambio de arquitectura más grande, no incluido aquí.
+- [x] `_apply_resource_report()` implementado — ya no es un `pass` vacío.
+      Mapea cada recurso seleccionado por `design_resource_hub`
+      (`resources_selected`) a su paquete npm real (`tailwindcss`,
+      `@radix-ui/react-slot`, `framer-motion`, `lucide-react`) y lo agrega a
+      `plan.dependencies`. Recursos sin paquete npm real (shadcn/ui es
+      código copiado, no un paquete; Google Fonts se carga por `<link>`, no
+      npm) se omiten a propósito en vez de inventar un nombre de paquete
+      incorrecto. Verificado con una corrida real: `dependencies` pasa de
+      `[]` a `['tailwindcss', '@radix-ui/react-slot', 'framer-motion', 'lucide-react']`.
 - [ ] Ningún campo `navigation`/`interactions` existe en `DesignBuildPlan` —
       hace falta agregarlos a `planner.py` (con datos reales, no vacíos)
       antes de que `_handle_navigation`/`_handle_interactions` tengan algo
       que hacer.
-- [ ] Fusionar `pipeline-orchestrator-and-fixes` a `main`
+- [ ] Fusionar `dynamic-sections-and-resource-report` a `main`
 - [ ] Crear la carpeta `projects/` como destino estándar de los sitios que
       el agente genere/modifique
-- [ ] **Coordinar con el trabajo paralelo de Qwen** (ver nota en el Log de
-      hoy) antes de fusionar cualquiera de las 2 ramas — hay riesgo real de
-      duplicar el nodo orquestador y la normalización de perfil
+- [ ] **Coordinar con el trabajo paralelo de Qwen** — su rama sigue sin
+      aparecer en el remoto (verificado de nuevo hoy)
 
 
 
@@ -293,8 +298,16 @@ propios que protejan esos cambios.
   10 archivos (antes de Fase 2B: 1). `_handle_navigation`/`_handle_interactions`
   siguen vacíos porque `DesignBuildPlan` no tiene esos campos todavía — no
   es un bug de site_builder, es que `planner.py` nunca los genera. 178
-  tests siguen en verde (5/5 de integración incluidos). Sin fusionar
-  todavía — sigue pendiente la alerta de coordinación con Qwen de arriba.
+  tests siguen en verde (5/5 de integración incluidos). Fusionado a main
+  como PR #18.
+- **2026-08-10** — Rama `dynamic-sections-and-resource-report`: completadas
+  las 4 secciones (`product`, `testimonials`, `cta`, `footer`) que
+  `home_page.sections` declaraba pero `_generate_sections()` nunca
+  construía. Implementado `_apply_resource_report()` (antes `pass` vacío) —
+  mapea recursos seleccionados por `design_resource_hub` a paquetes npm
+  reales y los agrega a `plan.dependencies`. Verificado: 14 archivos por
+  corrida (antes: 10), `dependencies` ahora tiene 4 paquetes reales (antes:
+  vacío). 178 tests en verde. Rama de Qwen sigue sin aparecer en el remoto.
 
 ---
 
