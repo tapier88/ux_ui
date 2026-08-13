@@ -750,6 +750,8 @@ class DesignBuildPlan:
     responsive_plan: ResponsivePlan = field(default_factory=ResponsivePlan)
     accessibility_plan: AccessibilityPlan = field(default_factory=AccessibilityPlan)
     performance_plan: PerformancePlan = field(default_factory=PerformancePlan)
+    navigation: Dict[str, Any] = field(default_factory=dict)
+    interactions: List[Dict[str, Any]] = field(default_factory=list)
     dependencies: List[str] = field(default_factory=list)
     implementation_order: List[ImplementationStep] = field(default_factory=list)
     validation_plan: List[str] = field(default_factory=list)
@@ -777,6 +779,8 @@ class DesignBuildPlan:
             "responsive_plan": self.responsive_plan.to_dict(),
             "accessibility_plan": self.accessibility_plan.to_dict(),
             "performance_plan": self.performance_plan.to_dict(),
+            "navigation": self.navigation,
+            "interactions": self.interactions,
             "dependencies": self.dependencies,
             "implementation_order": [i.to_dict() for i in self.implementation_order],
             "validation_plan": self.validation_plan,

@@ -64,6 +64,10 @@ class TestDryRun(DesignPipelineIntegrationTestCase):
             )
         self.assertIn("build_plan", result)
         self.assertGreater(len(result["build_plan"].get("sections", [])), 0)
+        self.assertIn("navigation", result["build_plan"])
+        self.assertGreater(len(result["build_plan"]["navigation"].get("items", [])), 0)
+        self.assertIn("interactions", result["build_plan"])
+        self.assertGreater(len(result["build_plan"]["interactions"]), 0)
 
     def test_02_dry_run_does_not_touch_disk(self):
         """dry_run=True must be a real dry run: no new files."""
@@ -110,7 +114,18 @@ class TestRealBuild(DesignPipelineIntegrationTestCase):
             total_output, 0, "Build completed but created/modified 0 files"
         )
 
-    def test_05_running_twice_in_a_row_is_stable(self):
+    def test_05_real_build_writes_navigation_and_interaction_outputs(self):
+        """Navigation and interactions are explicit implementation steps,
+        so they must produce real artifacts instead of pass-through no-ops."""
+        result = self._run_pipeline(dry_run=False)
+        report = result["report"]
+        created = set(report.get("files_created", []))
+
+        self.assertIn("src/components/Navigation.tsx", created)
+        self.assertIn("NAVIGATION_PLAN.md", created)
+        self.assertIn("INTERACTIONS_PLAN.md", created)
+
+    def test_06_running_twice_in_a_row_is_stable(self):
         """Regression test for the WebsiteInspector non-determinism found
         while debugging this pipeline: running the build twice on what
         should be the same project (the harness's own checkpoint/output

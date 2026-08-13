@@ -122,6 +122,15 @@ python -m harness.tests.test_graph_execution
 python harness/tests/test_git_persistence.py
 ```
 
+On Windows/PowerShell these test runners now configure their own console
+output and do not require setting `PYTHONUTF8=1` manually.
+
+For the current end-to-end pipeline guard, run:
+
+```bash
+python -m harness.tests.test_design_pipeline_integration
+```
+
 ## Status
 
 See HARNESS_STATUS section in test output.

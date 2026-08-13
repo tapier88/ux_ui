@@ -5,7 +5,21 @@ import sys
 import os
 
 # Add workspace to path
-sys.path.insert(0, '/workspace')
+sys.path.insert(0, os.getcwd())
+
+
+def _configure_stdout():
+    """Make direct execution portable across Windows consoles."""
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
+_configure_stdout()
 
 
 def test_website_intelligence_imports():
@@ -27,7 +41,7 @@ def test_website_intelligence_imports():
         analyze_website,
         create_design_profile
     )
-    print("✓ All imports successful")
+    print("[PASS] All imports successful")
 
 
 def test_models_creation():
@@ -62,7 +76,7 @@ def test_models_creation():
     
     assert profile.project_name == 'Test Project'
     assert profile.technology_stack.frontend_frameworks == ['React']
-    print("✓ Model creation successful")
+    print("[PASS] Model creation successful")
 
 
 def test_serialization_roundtrip():
@@ -95,7 +109,7 @@ def test_serialization_roundtrip():
     assert profile2.technology_stack.frontend_frameworks == ['React']
     assert profile2.visual_design.style == DesignStyle.MODERN
     
-    print("✓ Serialization roundtrip successful")
+    print("[PASS] Serialization roundtrip successful")
 
 
 def _make_fixture_project(path):
@@ -154,7 +168,7 @@ def test_inspector_with_project():
         assert profile.component_library is not None
         assert profile.component_library.component_count > 0
 
-        print("✓ Inspector with project successful")
+        print("[PASS] Inspector with project successful")
     finally:
         shutil.rmtree(fixture_path, ignore_errors=True)
 
@@ -169,7 +183,7 @@ def test_inspector_empty_project():
     assert profile.project_name == 'unknown'
     assert profile.url is None
     
-    print("✓ Inspector empty project handling successful")
+    print("[PASS] Inspector empty project handling successful")
 
 
 def test_skill_registry_integration():
@@ -188,7 +202,7 @@ def test_skill_registry_integration():
     assert isinstance(result, dict)
     assert 'project_name' in result
     
-    print("✓ Skill registry integration successful")
+    print("[PASS] Skill registry integration successful")
 
 
 def test_design_style_enum():
@@ -199,7 +213,7 @@ def test_design_style_enum():
     assert DesignStyle.MODERN.value == 'modern'
     assert DesignStyle.UNKNOWN.value == 'unknown'
     
-    print("✓ DesignStyle enum successful")
+    print("[PASS] DesignStyle enum successful")
 
 
 def test_color_palette():
@@ -221,7 +235,7 @@ def test_color_palette():
     assert len(palette2.colors) == 2
     assert palette2.colors[0].hex == '#3b82f6'
     
-    print("✓ ColorPalette functionality successful")
+    print("[PASS] ColorPalette functionality successful")
 
 
 def run_all_website_tests():
@@ -249,7 +263,7 @@ def run_all_website_tests():
             test_func()
             passed += 1
         except Exception as e:
-            print(f"✗ {name}: {e}")
+            print(f"[FAIL] {name}: {e}")
             failed += 1
     
     print("\n" + "=" * 50)

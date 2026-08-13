@@ -280,12 +280,66 @@ class SiteBuilder:
         self.report.files_created.append(layout_path)
 
     def _handle_navigation(self, design_build_plan: Dict[str, Any]):
-        """Handle navigation implementation"""
+        """Handle navigation implementation."""
         navigation = design_build_plan.get("navigation", {})
 
-        if navigation:
-            # Implement navigation components
-            pass
+        if not navigation:
+            return
+
+        items = [
+            item
+            for item in navigation.get("items", [])
+            if isinstance(item, dict)
+        ]
+        aria_label = navigation.get("landmarks", {}).get("aria_label", "Main navigation")
+        links = "\n".join(
+            f'          <a href="{item.get("href", "#")}">{item.get("label", "Untitled")}</a>'
+            for item in items
+        )
+        primary_cta = navigation.get("primary_cta", "Get Started")
+        navigation_component = f"""import React from 'react';
+
+export const Navigation: React.FC = () => {{
+  return (
+    <nav className="navigation" aria-label="{aria_label}">
+      <a className="navigation__brand" href="/">Home</a>
+      <div className="navigation__links">
+{links}
+      </div>
+      <a className="navigation__cta" href="#cta">{primary_cta}</a>
+    </nav>
+  );
+}};
+
+export default Navigation;
+"""
+        navigation_path = "src/components/Navigation.tsx"
+        self.file_manager.create_file(
+            navigation_path,
+            navigation_component,
+            reason="Implement navigation component",
+        )
+        self.report.files_created.append(navigation_path)
+        self.report.components_created.append("Navigation")
+
+        nav_manifest = ["# Navigation plan (from design_execution_planner)", ""]
+        landmarks = navigation.get("landmarks", {})
+        if isinstance(landmarks, dict) and landmarks:
+            nav_manifest.append(f"- Role: {landmarks.get('role', 'navigation')}")
+            nav_manifest.append(f"- ARIA label: {landmarks.get('aria_label', 'Main navigation')}")
+        for item in navigation.get("items", []):
+            if isinstance(item, dict):
+                nav_manifest.append(f"- Link: {item.get('label', 'Untitled')} -> {item.get('href', '#')}")
+        if navigation.get("primary_cta"):
+            nav_manifest.append(f"- Primary CTA: {navigation['primary_cta']}")
+
+        manifest_path = "NAVIGATION_PLAN.md"
+        self.file_manager.create_file(
+            manifest_path,
+            "\n".join(nav_manifest),
+            reason="Document navigation implementation plan",
+        )
+        self.report.files_created.append(manifest_path)
 
     def _handle_sections(self, design_build_plan: Dict[str, Any]):
         """Handle section implementation"""
@@ -326,9 +380,40 @@ class SiteBuilder:
         """Handle interaction implementation"""
         interactions = design_build_plan.get("interactions", {})
         
-        if interactions:
-            # Implement motion/animation
-            pass
+        if not interactions:
+            return
+
+        lines = [
+            "# Interaction plan (from design_execution_planner)",
+            "",
+            "Generated from the motion plan. Use this as the implementation contract for animation and interaction work.",
+            "",
+        ]
+
+        for interaction in interactions:
+            if not isinstance(interaction, dict):
+                continue
+            lines.append(f"## {interaction.get('target', 'unknown target')}")
+            lines.append(f"- Trigger: {interaction.get('trigger', 'not specified')}")
+            lines.append(f"- Type: {interaction.get('type', 'not specified')}")
+            lines.append(f"- Duration: {interaction.get('duration', 'not specified')}")
+            lines.append(f"- Easing: {interaction.get('easing', 'not specified')}")
+            lines.append(
+                f"- Reduced motion: {interaction.get('reduced_motion_behavior', 'not specified')}"
+            )
+            lines.append(f"- Resource: {interaction.get('resource', 'custom')}")
+            lines.append("")
+
+        if len(lines) <= 4:
+            return
+
+        interactions_path = "INTERACTIONS_PLAN.md"
+        self.file_manager.create_file(
+            interactions_path,
+            "\n".join(lines),
+            reason="Document interaction implementation plan",
+        )
+        self.report.files_created.append(interactions_path)
     
     def _handle_responsive(self, design_build_plan: Dict[str, Any]):
         """
