@@ -4,7 +4,8 @@ Git Persistence Models - State definitions for Git-based task persistence
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+
+from harness.core.time import utc_now_iso
 
 
 class TaskPersistenceState(Enum):
@@ -105,7 +106,7 @@ class TaskManifestEntry:
     branch: Optional[str] = None
     published: bool = False
     remote_verified: bool = False
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=utc_now_iso)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -130,5 +131,5 @@ class TaskManifestEntry:
             branch=data.get("branch"),
             published=data.get("published", False),
             remote_verified=data.get("remote_verified", False),
-            timestamp=data.get("timestamp", datetime.utcnow().isoformat()),
+            timestamp=data.get("timestamp", utc_now_iso()),
         )

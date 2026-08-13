@@ -3,9 +3,10 @@ Event System - Core event definitions and emitter
 """
 from enum import Enum
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Optional, Dict, Any, List
 import json
+
+from harness.core.time import utc_now_iso
 
 
 class EventType(Enum):
@@ -41,7 +42,7 @@ class Event:
     """Represents a system event"""
     event_type: EventType
     task_id: str
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=utc_now_iso)
     node_id: Optional[str] = None
     status: str = "info"
     data: Optional[Dict[str, Any]] = None

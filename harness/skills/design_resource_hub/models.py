@@ -4,7 +4,8 @@ Models for Design Resource Hub
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from enum import Enum
-from datetime import datetime
+
+from harness.core.time import utc_now_iso
 
 
 class ResourceType(Enum):
@@ -279,7 +280,7 @@ class AIQualityEvaluation:
 class DesignResourceReport:
     """Report generated after resource research"""
     task_id: str
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=utc_now_iso)
     project_analysis: Dict[str, Any] = field(default_factory=dict)
     resources_consulted: List[str] = field(default_factory=list)
     resources_selected: List[ResourceDecision] = field(default_factory=list)

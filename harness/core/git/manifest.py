@@ -4,8 +4,8 @@ Task Manifest - Manages task persistence history and recovery
 import json
 import os
 from typing import List, Optional, Dict, Any
-from datetime import datetime
 
+from harness.core.time import utc_now_iso
 from harness.core.git.models import TaskManifestEntry
 
 
@@ -34,7 +34,7 @@ class TaskManifest:
         """Save manifest to file"""
         data = {
             "version": "1.0",
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": utc_now_iso(),
             "tasks": [entry.to_dict() for entry in self._entries.values()]
         }
         with open(self.manifest_path, 'w') as f:

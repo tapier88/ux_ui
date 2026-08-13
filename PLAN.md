@@ -329,6 +329,12 @@ propios que protejan esos cambios.
   Verificado: `python -m harness.tests.run_all_tests` (40/40),
   `python -m harness.tests.test_governance` (13/13) y
   `python -m harness.tests.test_design_pipeline_integration` (7/7).
+- **2026-08-13** — Reemplazado `datetime.utcnow()` por timestamps UTC
+  timezone-aware mediante `harness.core.time.utc_now_iso()`. Esto elimina
+  `DeprecationWarning` en Python 3.13 sin cambiar el contrato externo de
+  timestamps como strings ISO. Verificado con `-W error::DeprecationWarning`
+  en `test_governance.py`, `test_runtime_fixes.py`, `test_memory.py` y
+  `test_checkpoint_persistence.py`; batería documentada completa en verde.
 
 ---
 

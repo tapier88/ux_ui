@@ -52,11 +52,11 @@ class RollbackManager:
                             pass
         
         # Create checkpoint info
-        from datetime import datetime
+        from harness.core.time import utc_now_iso
         checkpoint = CheckpointInfo(
             checkpoint_id=checkpoint_id,
             task_id=self.task_id,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=utc_now_iso(),
             description=description,
             files_snapshot=files_snapshot,
         )

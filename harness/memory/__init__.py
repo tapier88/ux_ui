@@ -23,12 +23,13 @@ Design notes:
   gitignored — see harness/.data/).
 """
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import json
 import threading
 import uuid
+
+from harness.core.time import utc_now_iso
 
 
 class MemoryCategory:
@@ -58,7 +59,7 @@ class MemoryRecord:
     content: Dict[str, Any]
     tags: List[str] = field(default_factory=list)
     task_id: Optional[str] = None
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=utc_now_iso)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -72,7 +73,7 @@ class MemoryRecord:
             content=data.get("content", {}),
             tags=data.get("tags", []),
             task_id=data.get("task_id"),
-            created_at=data.get("created_at", datetime.utcnow().isoformat()),
+            created_at=data.get("created_at", utc_now_iso()),
         )
 
 
