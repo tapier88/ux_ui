@@ -173,7 +173,7 @@ propios que protejan esos cambios.
       generados por `planner.py`; `site_builder` ya consume ambos campos y
       escribe `src/components/Navigation.tsx`, `NAVIGATION_PLAN.md` e
       `INTERACTIONS_PLAN.md`.
-- [ ] Fusionar `dynamic-sections-and-resource-report` a `main`
+- [x] Fusionar `dynamic-sections-and-resource-report` a `main`
 - [x] Crear la carpeta `projects/` como destino estándar de los sitios que
       el agente genere/modifique
 - [ ] **Coordinar con el trabajo paralelo de Qwen** — su rama sigue sin
@@ -205,15 +205,16 @@ propios que protejan esos cambios.
       (`brand_alignment`, `accessibility`, `visual_craft`, `performance`,
       `seo_impact`, `originality`) como salidas medibles de cada skill, no
       números inventados. `DesignPipelineNode` ahora deriva señales
-      determinísticas desde `profile_dict`, `redesign_result` y
-      `DesignBuildPlan.to_dict()` con evidencia auditable por dimensión.
+      determinísticas desde `profile_dict`, `redesign_result`,
+      `DesignBuildPlan.to_dict()` y `seo_analysis` con evidencia auditable por
+      dimensión.
 - [x] `BaseDesignJudgmentEngine`: generalizar el patrón del Qwen Adapter para
       que cualquier skill de "juicio creativo" sea intercambiable entre
       proveedores de IA
 - [x] Conectar `GovernanceGate` antes de `site_builder` en `DesignPipelineNode`
       (ver Fase 1, ya marcado ahí también)
 
-## Fase 4 — La visión completa (no iniciada)
+## Fase 4 — La visión completa (iniciada)
 
 - [ ] Prospección: buscar sitios candidatos con diseño anticuado
 - [x] Análisis SEO explícito (hoy solo hay análisis de diseño/UX)
@@ -394,6 +395,10 @@ propios que protejan esos cambios.
   `python -m harness.tests.test_client_proposal`,
   `python -m harness.tests.test_design_pipeline_integration` y
   `python -m harness.tests.run_all_tests`.
+- **2026-08-13** — Limpieza de estado del PLAN: `dynamic-sections-and-resource-report`
+  ya estaba fusionado como PR #19, y el PR #20 de navegación/interacciones quedó
+  cerrado como obsoleto porque fue reemplazado por PR #22 y trabajos posteriores.
+  Verificado: `gh pr view 19`, `gh pr view 20` y `python -m harness.tests.run_all_tests`.
 
 ---
 
