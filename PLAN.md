@@ -24,6 +24,7 @@ python -m harness.tests.test_design_agent_cycle_node
 python -m harness.tests.test_design_judgment
 python -m harness.tests.test_client_proposal
 python -m harness.tests.test_prospecting
+python -m harness.tests.test_reference_learning
 ```
 Si alguno falla, este documento está desactualizado en ese punto — confía en el
 test, actualiza el documento, no al revés.
@@ -219,7 +220,7 @@ propios que protejan esos cambios.
 
 - [x] Prospección: buscar sitios candidatos con diseño anticuado
 - [x] Análisis SEO explícito (hoy solo hay análisis de diseño/UX)
-- [ ] Aprendizaje por referencia externa: consultar repos/diseños reales antes
+- [x] Aprendizaje por referencia externa: consultar repos/diseños reales antes
       de decidir (evita el "look genérico de IA")
 - [ ] Conectores MCP (Higgsfield y similares) y librerías externas
 - [x] Generación de la propuesta de valor cliente-facing (antes/después,
@@ -403,6 +404,11 @@ propios que protejan esos cambios.
 - **2026-08-13** — Agregada skill `prospecting` para rankear candidatos por
   oportunidad de rediseño usando señales locales auditables. No scrapea ni
   contacta leads. Verificado: `python -m harness.tests.test_prospecting` y
+  `python -m harness.tests.run_all_tests`.
+- **2026-08-13** — Agregada skill `reference_learning` para convertir
+  referencias externas suministradas por un conector/usuario en lecciones de
+  diseño reutilizables. Verificado:
+  `python -m harness.tests.test_reference_learning` y
   `python -m harness.tests.run_all_tests`.
 
 ---

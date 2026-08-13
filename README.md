@@ -132,6 +132,12 @@ Built from scratch with a modular, graph-based execution engine.
 - **No outreach side effects**: The skill does not scrape, email, or contact
   anyone; it only scores candidate data passed to it.
 
+### 16. Reference Learning
+- **ReferenceLearningEngine**: Turns supplied external design/code references
+  into reusable lessons and recommendations.
+- **Connector-ready**: Future GitHub/Figma/web research connectors can feed the
+  same `references` contract without changing downstream skills.
+
 ## Task Completion Lifecycle
 
 A task can only be marked as **COMPLETE** after passing through these stages:
@@ -185,6 +191,7 @@ python -m harness.tests.test_design_judgment
 python -m harness.tests.test_seo_analysis
 python -m harness.tests.test_client_proposal
 python -m harness.tests.test_prospecting
+python -m harness.tests.test_reference_learning
 ```
 
 ## Status

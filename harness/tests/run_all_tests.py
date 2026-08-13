@@ -51,6 +51,7 @@ class TestResults:
     "seo_analysis": "SEO Analysis",
     "client_proposal": "Client Proposal",
     "prospecting": "Prospecting",
+    "reference_learning": "Reference Learning",
     "design_judgment": "Design Judgment",
     "agent_cycle": "Agent Cycle",
     "agent_cycle_node": "Agent Cycle Node",
@@ -738,6 +739,12 @@ def run_all_tests():
     from harness.tests import test_prospecting
     prospecting_passed = test_prospecting.run_all_tests()
     results.add("prospecting", prospecting_passed)
+
+    print()
+    print("--- Reference Learning Tests ---")
+    from harness.tests import test_reference_learning
+    reference_learning_passed = test_reference_learning.run_all_tests()
+    results.add("reference_learning", reference_learning_passed)
 
     print()
     print("--- Design Judgment Tests ---")
