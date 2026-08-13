@@ -1,245 +1,279 @@
-# Architecture Documentation - Harness V0.1
+# Architecture Documentation - Harness
 
 ## Overview
 
-This document describes the architecture of the autonomous web design agent harness (V0.1).
-The harness is built from scratch with a modular, graph-based execution engine.
+This repository contains a modular autonomous web-design harness. The current
+system is no longer only the V0.1 base infrastructure: it now includes a real
+design pipeline, governance gate, memory persistence, deterministic agent cycle,
+and provider-agnostic creative judgment contract.
+
+The execution model is graph-based. Work enters through `GraphRuntime`, moves
+through typed nodes, stores state/checkpoints, emits events, and persists task
+progress through Git when changes are ready to publish.
 
 ## Design Principles
 
-1. **Modularity**: Each component is independent and replaceable
-2. **Abstraction**: Core logic is decoupled from specific providers (e.g., Qwen-Agent)
-3. **Testability**: All components can be tested in isolation with mocks
-4. **Recoverability**: Checkpoints enable recovery from errors
-5. **Observability**: Events and structured logging provide full visibility
-6. **Persistence**: All tasks must be persisted to Git before completion
+1. **Modularity**: graph, state, runtime, tools, skills, agents, memory, and git
+   persistence are separate modules.
+2. **Provider abstraction**: LLM access is behind `LLMProvider`; creative
+   judgments are behind `BaseDesignJudgmentEngine`.
+3. **Deterministic safety first**: design execution can run in dry-run mode, and
+   real writes are blocked by governance failures.
+4. **Recoverability**: state checkpoints can be restored from memory or disk.
+5. **Observability**: runtime events, stage outputs, governance evidence, and
+   agent traces are inspectable.
+6. **Publication discipline**: a task is not complete until changes are
+   committed, pushed, and verified remotely.
 
 ## Directory Structure
 
+```text
+ux_ui/
+|-- harness/
+|   |-- agents/       # LLM providers, design judgment, deterministic agent loop
+|   |-- core/
+|   |   |-- events/   # Event model and emitter
+|   |   |-- git/      # Git inspection, persistence, publication validation
+|   |   |-- governance/ # Elevation scoring and blocking gate
+|   |   |-- graph/    # Graph, Node, Edge, GraphBuilder
+|   |   |-- runtime/  # GraphRuntime execution engine
+|   |   |-- state/    # TaskState, checkpoints, file checkpoint storage
+|   |   `-- time.py   # Timezone-aware UTC timestamps
+|   |-- memory/       # JSONL memory store and categories
+|   |-- nodes/        # Standard nodes and design pipeline nodes
+|   |-- skills/       # Website/design intelligence and build skills
+|   |-- tests/        # Unit and integration tests
+|   `-- tools/        # Tool registry and mock tools
+|-- projects/         # Project output area
+|-- ARCHITECTURE.md
+|-- ARCHITECTURE_PRINCIPLES.md
+|-- GRAPH.md
+|-- HARNESS_AUDIT.md
+|-- PLAN.md
+|-- README.md
+`-- ROADMAP.md
 ```
-/workspace
-├── harness/
-│   ├── core/           # Core engine components
-│   │   ├── graph/      # Graph definition and builder
-│   │   ├── state/      # State management and checkpoints
-│   │   ├── runtime/    # Execution engine
-│   │   ├── orchestrator/ # Orchestration logic (future)
-│   │   ├── events/     # Event system
-│   │   └── git/        # Git persistence & publication
-│   │
-│   ├── agents/         # LLM provider abstractions
-│   ├── nodes/          # Node implementations
-│   ├── tools/          # Tool registry
-│   ├── skills/         # Skill registry
-│   ├── memory/         # Memory systems (future)
-│   ├── config/         # Configuration (future)
-│   ├── logs/           # Log output
-│   └── tests/          # Test suite
-│
-├── projects/           # Project outputs (future)
-├── scripts/            # Utility scripts
-├── TASK_MANIFEST.json  # Task persistence history
-└── docs/               # Documentation
+
+## Core Runtime
+
+### Graph Engine (`harness/core/graph/`)
+
+Defines and validates directed workflows.
+
+- `Graph`: node and edge container.
+- `Node`: executable graph unit with id, name, type, and optional execute
+  function.
+- `Edge`: connection between nodes, including conditional/loop routing support.
+- `NodeType`: `START`, `END`, `STANDARD`, `CONDITIONAL`, `LOOP`.
+- `GraphBuilder`: fluent graph construction helper.
+
+### State Engine (`harness/core/state/`)
+
+Maintains task state across graph execution.
+
+- `TaskState`: inputs, outputs, status, current node, history, and errors.
+- `Checkpoint`: serializable state snapshot.
+- `StateManager`: task state and checkpoint management.
+- File checkpoint storage supports process-restart recovery.
+
+### Runtime Engine (`harness/core/runtime/`)
+
+Executes graphs with bounded safety controls.
+
+- Sequential graph execution.
+- Conditional routing.
+- Loop handling with `max_steps`.
+- Node timeout handling.
+- Retry support.
+- Checkpoint creation.
+- Event emission.
+- Correct task failure reporting when any node fails.
+
+## Skills and Design Pipeline
+
+### Skill Registry (`harness/skills/`)
+
+Skills are reusable capabilities registered in the local registry. Current
+design-relevant skills include:
+
+- `website_intelligence`: inspects project structure and extracts a design
+  profile.
+- `redesign_intelligence`: decides what to preserve, remove, improve, and how to
+  structure visual strategy.
+- `design_resource_hub`: selects practical design resources for the project.
+- `design_execution_planner`: creates `DesignBuildPlan`, including pages,
+  sections, navigation, interactions, accessibility, performance, and style
+  outputs.
+- `site_builder`: writes actual implementation artifacts when execution is not
+  dry-run.
+
+### DesignPipelineNode (`harness/nodes/design_pipeline_node.py`)
+
+Runs the full deterministic design flow:
+
+```text
+website_intelligence
+-> redesign_intelligence
+-> design_resource_hub
+-> design_execution_planner
+-> governance_gate
+-> site_builder
 ```
 
-## Core Components
+The node supports:
 
-### 1. Graph Engine (`harness/core/graph/`)
+- dry-run execution;
+- real build execution;
+- explicit stage status;
+- deterministic governance signals;
+- blocked writes when quality gates fail.
 
-**Purpose**: Define and validate directed graphs for workflow execution.
+## Governance
 
-**Key Classes**:
-- `Graph`: Represents a directed graph with nodes and edges
-- `Node`: Represents a node with id, name, type, and execution function
-- `Edge`: Represents a connection between nodes
-- `NodeType`: Enum for START, END, STANDARD, CONDITIONAL, LOOP
-- `GraphBuilder`: Fluent builder for constructing graphs
+`harness/core/governance/` protects the pipeline from handing low-quality work
+to the client or writing it as a real build.
 
-**Features**:
-- Graph validation (reachability, start/end nodes)
-- Topological ordering for execution
-- Support for conditional edges (future)
+- `ElevationSignal`: one scored quality dimension.
+- `ElevationScorer`: weighted score and hard-fail logic.
+- `GovernanceGate`: pass/block decision with evidence.
 
-### 2. State Engine (`harness/core/state/`)
+Current signal dimensions:
 
-**Purpose**: Manage shared state across all nodes in a graph execution.
+- `brand_alignment`
+- `accessibility`
+- `visual_craft`
+- `performance`
+- `seo_impact`
+- `originality`
 
-**Key Classes**:
-- `TaskState`: Complete state of a task including inputs, outputs, history, errors
-- `Checkpoint`: Snapshot of state at a point in time
-- `StateManager`: Manages states for all tasks
+`DesignPipelineNode` derives these signals from concrete pipeline outputs
+instead of invented numbers.
 
-**Features**:
-- Task isolation by task_id
-- History tracking
-- Error recording
-- Checkpoint creation and restoration
+## Agents
 
-### 3. Runtime Engine (`harness/core/runtime/`)
+### LLM Provider Adapter (`harness/agents/__init__.py`)
 
-**Purpose**: Execute graphs with error handling, retries, and checkpointing.
+The provider layer remains interchangeable:
 
-**Key Classes**:
-- `GraphRuntime`: Main execution engine
-- `RuntimeConfig`: Configuration for execution behavior
-- `ExecutionResult`: Result of graph execution
+- `LLMProvider`: abstract provider contract.
+- `MockLLMProvider`: default test-safe provider.
+- `QwenAgentProvider`: placeholder for real Qwen credentials.
+- `LLMAdapterFactory`: provider creation and caching.
 
-**Features**:
-- Sequential node execution
-- Automatic retry on failure
-- Checkpoint creation after each successful node
-- Event emission throughout execution
-- Graceful error handling
+### BaseDesignJudgmentEngine (`harness/agents/judgment.py`)
 
-### 4. Event System (`harness/core/events/`)
+Creative judgments now have a provider-agnostic contract:
 
-**Purpose**: Broadcast system events for observability and debugging.
+- `DesignJudgmentRequest`: judgment type, subject, criteria, context, metadata.
+- `DesignJudgmentResult`: decision, rationale, confidence, provider status,
+  raw response, metadata.
+- `BaseDesignJudgmentEngine`: builds structured prompts, calls any
+  `LLMProvider`, and normalizes the response.
 
-**Event Types**:
-- TASK_STARTED / TASK_COMPLETED / TASK_FAILED
-- NODE_STARTED / NODE_COMPLETED / NODE_FAILED
-- TOOL_STARTED / TOOL_COMPLETED
-- CHECKPOINT_CREATED
-- ERROR_RECOVERED
+This lets future skills swap mock/Qwen/other providers without changing their
+public API.
 
-**Key Classes**:
-- `Event`: Structured event with timestamp, task_id, node_id, status
-- `EventEmitter`: Publish-subscribe event broadcaster
+### DeterministicDesignAgent (`harness/agents/design_cycle.py`)
 
-### 5. Tool Registry (`harness/tools/`)
+The first Fase 3 agent layer wraps `DesignPipelineNode` in an auditable loop:
 
-**Purpose**: Register, discover, and execute tools.
+```text
+PLAN -> EXECUTE -> OBSERVE -> EVALUATE -> DECIDE
+```
 
-**Key Classes**:
-- `ToolRegistry`: Central registry for tools
-- `ToolDefinition`: Tool metadata and function
-- `ToolResult`: Execution result with status
+Properties:
 
-**Mock Tools** (for testing):
-- `mock_search`: Fake search results
-- `mock_browser`: Fake page content
-- `mock_file`: Simulated file operations
-- `mock_data`: Data processing simulation
+- first pass is always dry-run;
+- real writes happen only after dry-run governance passes;
+- `max_iterations` bounds replanning;
+- retry currently handles over-strict governance thresholds safely;
+- hard failures remain blocked.
 
-### 6. Skill Registry (`harness/skills/`)
+### DesignAgentCycleNode (`harness/nodes/design_agent_cycle_node.py`)
 
-**Purpose**: Register and load skills (reusable capabilities).
+Exposes the deterministic agent cycle as a normal graph node. It can be created
+directly or through:
 
-**Key Classes**:
-- `SkillRegistry`: Central registry for skills
-- `SkillDefinition`: Skill metadata and function
-
-**Test Skill**:
-- `test-skill`: Basic skill for validation
-
-### 7. Qwen Adapter (`harness/agents/`)
-
-**Purpose**: Abstract LLM provider to avoid coupling.
-
-**Key Classes**:
-- `LLMProvider`: Abstract base class
-- `MockLLMProvider`: Mock implementation for testing
-- `QwenAgentProvider`: Real Qwen-Agent implementation (requires credentials)
-- `LLMAdapterFactory`: Factory for creating providers
-
-**Connection Guide**:
-To connect real Qwen-Agent:
-1. Set API key and endpoint in environment
-2. Create `QwenAgentProvider` with credentials
-3. Call `connect()` to establish connection
-4. Use `generate()` for completions
-
-### 8. Node System (`harness/nodes/`)
-
-**Purpose**: Standard interface for executable units.
-
-**Base Interface**:
 ```python
-class BaseNode:
-    def __init__(self, node_id: str, name: str, node_type: NodeType)
-    def execute(self, state: TaskState) -> Any
+create_node_factory()["design_agent_cycle"]
 ```
 
-**Standard Nodes**:
-- `HelloNode`: Simple greeting node
-- `QwenTestNode`: Tests LLM adapter
-- `ToolTestNode`: Tests tool registry
-- `SkillTestNode`: Tests skill registry
-- `ErrorTestNode`: For testing error handling
-- `CheckpointTestNode`: For testing checkpoints
-- `DataPassNode`: Passes data through
+## Memory
+
+`harness/memory/` provides a JSONL memory store for durable lessons and
+governance outcomes.
+
+The memory layer supports:
+
+- category/tag filtering;
+- latest-memory lookup;
+- text search;
+- corrupted-line tolerance;
+- persistence across fresh store instances.
+
+## Git Persistence
+
+`harness/core/git/` enforces the repository publication lifecycle.
+
+Capabilities:
+
+- repository inspection;
+- uncommitted/untracked/sensitive file detection;
+- commit creation;
+- branch/remote mismatch detection;
+- publication-required status when no remote exists;
+- safe publication preparation with real conflict reporting.
 
 ## Execution Flow
 
+```text
+1. Build a graph with GraphBuilder.
+2. Execute with GraphRuntime.
+3. Runtime creates or retrieves TaskState.
+4. For each node:
+   a. emit node-start event;
+   b. execute node logic;
+   c. store outputs;
+   d. checkpoint state;
+   e. emit node-complete or node-failed event;
+   f. route to next node.
+5. Runtime marks task completed, failed, or cancelled.
+6. Git persistence verifies commit/publication status when a task changes code.
 ```
-1. Create Graph using GraphBuilder
-2. Create Runtime with configuration
-3. Call runtime.execute(graph, task_id, initial_state)
-4. Runtime creates TaskState
-5. For each node:
-   a. Emit NODE_STARTED
-   b. Execute node.execute(state)
-   c. Store output in state.outputs
-   d. Create checkpoint
-   e. Emit NODE_COMPLETED
-   f. Get next node from graph
-6. Emit TASK_COMPLETED
-7. Return ExecutionResult
-```
 
-## Error Handling Strategy
+## Current Verification Commands
 
-1. **Retry**: Failed nodes are retried up to `max_retries` times
-2. **Checkpoint**: State is saved after each successful node
-3. **Continue**: On permanent failure, execution can continue to END
-4. **Recovery**: Task can be restored from last checkpoint
-
-## Testing
-
-Run all tests:
 ```bash
 python -m harness.tests.run_all_tests
+python -m harness.tests.test_website_intelligence
+python -m harness.tests.test_redesign_intelligence
+python -m harness.tests.test_git_persistence
+python -m harness.tests.test_color_intelligence
+python -m harness.tests.test_governance
+python -m harness.tests.test_runtime_fixes
+python -m harness.tests.test_memory
+python -m harness.tests.test_checkpoint_persistence
+python -m harness.tests.test_agent_cycle
+python -m harness.tests.test_design_agent_cycle_node
+python -m harness.tests.test_design_judgment
+python -m harness.tests.test_design_pipeline_integration
 ```
 
-Test categories:
-- Graph tests (creation, validation, execution order)
-- State tests (creation, updates, history)
-- Checkpoint tests (creation, restoration)
-- Event tests (creation, emission, history)
-- Tool tests (registry, execution, mocks)
-- Skill tests (registry, execution)
-- Qwen adapter tests (mock provider, generation)
-- Node tests (all standard nodes)
-- Runtime tests (execution, error handling)
+## Current Status
 
-## HARNESS STATUS
+The core harness, deterministic design pipeline, governance gate, memory store,
+git persistence layer, agent cycle, graph-node integration, and provider-agnostic
+design judgment base all have automated coverage.
 
-```
-HARNESS STATUS
-===============
-Graph: PASS
-State: PASS
-Nodes: PASS
-Tools: PASS
-Skills: PASS
-Qwen Adapter: PASS
-Checkpoint: PASS
-Events: PASS
-Error Recovery: PASS
-Tests: PASS
-```
+## Known Remaining Gaps
 
-## Future Extensions (Not in V0.1)
-
-- Browser automation
-- Web scraping
-- Design analysis
-- UX analysis
-- Frontend generation
-- Autonomous outreach
-- CRM integration
-- Web deployment
+- Real `QwenAgentProvider.connect()` and `generate()` still need a concrete API
+  client and credentials.
+- Prospecting, external-reference learning, client-facing proposal generation,
+  and outbound delivery are not implemented yet.
+- SEO exists only as a governance/design signal, not as a dedicated SEO analysis
+  skill.
 
 ## Version
 
-Harness V0.1 - Base Infrastructure
+Harness current architecture snapshot - 2026-08-13.
