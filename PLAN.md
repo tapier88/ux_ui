@@ -178,18 +178,19 @@ propios que protejan esos cambios.
 - [x] Fusionar `dynamic-sections-and-resource-report` a `main`
 - [x] Crear la carpeta `projects/` como destino estándar de los sitios que
       el agente genere/modifique
-- [ ] **Coordinar con el trabajo paralelo de Qwen** — su rama sigue sin
-      aparecer en el remoto (verificado de nuevo hoy)
+- [x] **Coordinar con el trabajo paralelo de Qwen** — decisión tomada:
+      no se integrará Qwen; el harness corre en la infraestructura local de
+      Codex/local provider.
 
 
 
 
 ## Fase 3 — Que el agente piense de verdad (iniciada)
 
-- [ ] Conectar `QwenAgentProvider` (`harness/agents/__init__.py`) a la API real
-      — hoy `connect()`/`generate()` son placeholders, todo corre en
-      `MockLLMProvider`. Instrucción ya redactada y entregada a Qwen dos veces,
-      todavía no ejecutada.
+- [x] No conectar `QwenAgentProvider` a una API real. Decisión actual:
+      el provider externo queda reemplazado por infraestructura local
+      (`LocalInfrastructureProvider`); `QwenAgentProvider` solo existe como
+      alias de compatibilidad y no usa credenciales, endpoint ni red.
 - [x] Primer ciclo agente determinístico:
       `PLAN → EXECUTE → OBSERVE → EVALUATE → DECIDE`
       (`harness/agents/design_cycle.py`). Corre una planificación dry-run,
@@ -210,7 +211,7 @@ propios que protejan esos cambios.
       determinísticas desde `profile_dict`, `redesign_result`,
       `DesignBuildPlan.to_dict()` y `seo_analysis` con evidencia auditable por
       dimensión.
-- [x] `BaseDesignJudgmentEngine`: generalizar el patrón del Qwen Adapter para
+- [x] `BaseDesignJudgmentEngine`: generalizar el patrón del provider local para
       que cualquier skill de "juicio creativo" sea intercambiable entre
       proveedores de IA
 - [x] Conectar `GovernanceGate` antes de `site_builder` en `DesignPipelineNode`
@@ -410,6 +411,10 @@ propios que protejan esos cambios.
   diseño reutilizables. Verificado:
   `python -m harness.tests.test_reference_learning` y
   `python -m harness.tests.run_all_tests`.
+- **2026-08-13** — Decisión de infraestructura: no se conectará Qwen. El
+  harness corre aquí con provider local. `LocalInfrastructureProvider` es la
+  ruta activa; `QwenAgentProvider` queda solo como alias backward-compatible
+  hacia local. Verificado: `python -m harness.tests.run_all_tests`.
 
 ---
 
@@ -419,9 +424,9 @@ propios que protejan esos cambios.
    `[x]` te falla, este documento está desactualizado — arréglalo y actualiza
    el Log, no asumas que el código está mal.
 2. Fase 2/Fase 2B ya tienen el pipeline ejecutando build real con gobernanza
-   previa a escritura. Fase 3 ya tiene un primer ciclo determinístico; el
-   siguiente bloqueador es conectar decisión iterativa más rica y/o proveedor
-   LLM real sin romper la ruta mock.
+   previa a escritura. Fase 3 ya tiene un ciclo determinístico y provider
+   local; no planifiques una conexión Qwen/API real salvo nueva instrucción
+   explícita.
 3. No fusiones ninguna rama sin correr su suite de tests aislada primero
    (`git worktree add /tmp/test_X origin/rama-x` es más seguro que hacer
    checkout directo, no ensucia tu working copy).

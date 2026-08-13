@@ -58,9 +58,9 @@ Built from scratch with a modular, graph-based execution engine.
 ### 5. Skill System
 - Skill Registry with register, load, list capabilities
 
-### 6. Qwen Adapter
-- Abstract LLM provider layer
-- Mock implementation for testing
+### 6. Local Provider Adapter
+- Abstract provider layer for local infrastructure
+- Mock/local implementation for reproducible testing
 
 ### 7. Checkpoint System
 - Save state after each successful node
@@ -123,7 +123,7 @@ Built from scratch with a modular, graph-based execution engine.
 - **Structured I/O**: `DesignJudgmentRequest` captures judgment type, subject,
   criteria, context, and metadata; `DesignJudgmentResult` returns stable
   decision, rationale, confidence, provider status, and raw response.
-- **Provider swap ready**: Skills can use mock, Qwen, or future providers
+- **Provider swap ready**: Skills can use mock/local or future providers
   without changing their public judgment contract.
 
 ### 15. Prospecting

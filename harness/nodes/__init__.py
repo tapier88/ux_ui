@@ -42,14 +42,14 @@ class HelloNode(BaseNode):
         return result
 
 
-class QwenTestNode(BaseNode):
-    """Test node for Qwen adapter"""
+class LocalLLMTestNode(BaseNode):
+    """Test node for the local LLM provider adapter"""
     
     def __init__(self):
-        super().__init__("QWEN_TEST_NODE", "Qwen Test Node")
+        super().__init__("LOCAL_LLM_TEST_NODE", "Local LLM Test Node")
     
     def execute(self, state: TaskState) -> dict:
-        """Test Qwen adapter functionality"""
+        """Test local provider adapter functionality"""
         from harness.agents import get_default_provider, LLMRequest
         
         # Use mock provider for testing
@@ -57,17 +57,26 @@ class QwenTestNode(BaseNode):
         
         # Create request object properly
         from harness.agents import LLMRequest
-        request = LLMRequest(prompt="Test prompt from QwenTestNode")
+        request = LLMRequest(prompt="Test prompt from LocalLLMTestNode")
         response = provider.generate(request)
         
         result = {
-            "node": "QwenTestNode",
-            "prompt": "Test prompt from QwenTestNode",
+            "node": "LocalLLMTestNode",
+            "prompt": "Test prompt from LocalLLMTestNode",
             "response": response.content,
             "provider_status": provider.get_status().value
         }
         
         return result
+
+
+class QwenTestNode(LocalLLMTestNode):
+    """Backward-compatible alias for older tests/graphs."""
+
+    def __init__(self):
+        super().__init__()
+        self.id = "QWEN_TEST_NODE"
+        self.name = "Legacy Local LLM Test Node"
 
 
 class ToolTestNode(BaseNode):
@@ -187,6 +196,7 @@ def create_node_factory():
     
     factories = {
         "hello": lambda: HelloNode(),
+        "local_llm_test": lambda: LocalLLMTestNode(),
         "qwen_test": lambda: QwenTestNode(),
         "tool_test": lambda: ToolTestNode(),
         "skill_test": lambda: SkillTestNode(),
@@ -207,8 +217,15 @@ def hello_node() -> Node:
     return node
 
 
+def local_llm_test_node() -> Node:
+    """Create a LocalLLMTestNode"""
+    node = LocalLLMTestNode()
+    node.execute_func = lambda state: node.execute(state)
+    return node
+
+
 def qwen_test_node() -> Node:
-    """Create a QwenTestNode"""
+    """Backward-compatible alias for local_llm_test_node."""
     node = QwenTestNode()
     node.execute_func = lambda state: node.execute(state)
     return node
