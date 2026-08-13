@@ -262,6 +262,12 @@ def generate(prompt: str, **kwargs) -> LLMResponse:
     return provider.generate(request)
 
 
+from harness.agents.judgment import (  # noqa: E402
+    BaseDesignJudgmentEngine,
+    DesignJudgmentRequest,
+    DesignJudgmentResult,
+)
+
 from harness.agents.design_cycle import (  # noqa: E402
     AgentCycleResult,
     AgentCycleStep,

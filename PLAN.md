@@ -20,6 +20,7 @@ python -m harness.tests.test_memory
 python -m harness.tests.test_checkpoint_persistence
 python -m harness.tests.test_agent_cycle
 python -m harness.tests.test_design_agent_cycle_node
+python -m harness.tests.test_design_judgment
 ```
 Si alguno falla, este documento está desactualizado en ese punto — confía en el
 test, actualiza el documento, no al revés.
@@ -204,7 +205,7 @@ propios que protejan esos cambios.
       números inventados. `DesignPipelineNode` ahora deriva señales
       determinísticas desde `profile_dict`, `redesign_result` y
       `DesignBuildPlan.to_dict()` con evidencia auditable por dimensión.
-- [ ] `BaseDesignJudgmentEngine`: generalizar el patrón del Qwen Adapter para
+- [x] `BaseDesignJudgmentEngine`: generalizar el patrón del Qwen Adapter para
       que cualquier skill de "juicio creativo" sea intercambiable entre
       proveedores de IA
 - [x] Conectar `GovernanceGate` antes de `site_builder` en `DesignPipelineNode`
@@ -371,6 +372,10 @@ propios que protejan esos cambios.
   de grafos mediante `DesignAgentCycleNode` y la factory
   `design_agent_cycle`. Verificado:
   `python -m harness.tests.test_design_agent_cycle_node` y
+  `python -m harness.tests.run_all_tests`.
+- **2026-08-13** — Agregado `BaseDesignJudgmentEngine` con request/result
+  estructurados para juicios creativos intercambiables entre proveedores
+  `LLMProvider`. Verificado: `python -m harness.tests.test_design_judgment` y
   `python -m harness.tests.run_all_tests`.
 
 ---
