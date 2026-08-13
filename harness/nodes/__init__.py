@@ -183,6 +183,7 @@ class DataPassNode(BaseNode):
 
 def create_node_factory():
     """Factory for creating standard nodes"""
+    from harness.nodes.design_agent_cycle_node import design_agent_cycle_node
     
     factories = {
         "hello": lambda: HelloNode(),
@@ -192,6 +193,7 @@ def create_node_factory():
         "error_test": lambda: ErrorTestNode(),
         "checkpoint_test": lambda: CheckpointTestNode(),
         "data_pass": lambda key, value=None: DataPassNode(key, value),
+        "design_agent_cycle": lambda project_path=".": design_agent_cycle_node(project_path),
     }
     
     return factories
@@ -231,3 +233,9 @@ def error_test_node(fail_on_first: bool = True) -> Node:
     node = ErrorTestNode(fail_on_first)
     node.execute_func = lambda state: node.execute(state)
     return node
+
+
+from harness.nodes.design_agent_cycle_node import (  # noqa: E402
+    DesignAgentCycleNode,
+    design_agent_cycle_node,
+)

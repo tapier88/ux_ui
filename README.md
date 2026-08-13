@@ -107,6 +107,9 @@ Built from scratch with a modular, graph-based execution engine.
 - **Bounded retry**: `max_iterations` allows deterministic replanning for
   retryable failures, currently limited to correcting over-strict governance
   thresholds without weakening hard-fail quality gates.
+- **Graph integration**: `DesignAgentCycleNode` exposes the cycle as a normal
+  harness graph node, and the node factory can create it with
+  `create_node_factory()["design_agent_cycle"]`.
 
 ## Task Completion Lifecycle
 
@@ -156,6 +159,7 @@ For the deterministic agent-cycle guard, run:
 
 ```bash
 python -m harness.tests.test_agent_cycle
+python -m harness.tests.test_design_agent_cycle_node
 ```
 
 ## Status

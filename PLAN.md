@@ -19,6 +19,7 @@ python -m harness.tests.test_runtime_fixes
 python -m harness.tests.test_memory
 python -m harness.tests.test_checkpoint_persistence
 python -m harness.tests.test_agent_cycle
+python -m harness.tests.test_design_agent_cycle_node
 ```
 Si alguno falla, este documento está desactualizado en ese punto — confía en el
 test, actualiza el documento, no al revés.
@@ -194,6 +195,9 @@ propios que protejan esos cambios.
       determinísticos para fallos retryable. Por ahora solo corrige umbrales
       de gobernanza sobre-estrictos hasta el score observado; no ignora hard
       fails ni reintenta fallos de etapa no seguros.
+- [x] Integración del ciclo agente como nodo de grafo:
+      `DesignAgentCycleNode` permite ejecutar el ciclo determinístico desde
+      `GraphRuntime` y desde `create_node_factory()["design_agent_cycle"]`.
 - [x] Definir las señales reales del `GovernanceGate`
       (`brand_alignment`, `accessibility`, `visual_craft`, `performance`,
       `seo_impact`, `originality`) como salidas medibles de cada skill, no
@@ -363,6 +367,11 @@ propios que protejan esos cambios.
   retryable, bloquea con traza completa. Verificado:
   `python -m harness.tests.test_agent_cycle` (5/5) y
   `python -m harness.tests.run_all_tests` (41/41).
+- **2026-08-13** — El ciclo agente determinístico quedó conectado al runtime
+  de grafos mediante `DesignAgentCycleNode` y la factory
+  `design_agent_cycle`. Verificado:
+  `python -m harness.tests.test_design_agent_cycle_node` y
+  `python -m harness.tests.run_all_tests`.
 
 ---
 
