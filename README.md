@@ -111,6 +111,15 @@ Built from scratch with a modular, graph-based execution engine.
   harness graph node, and the node factory can create it with
   `create_node_factory()["design_agent_cycle"]`.
 
+### 14. Provider-Agnostic Design Judgment
+- **BaseDesignJudgmentEngine**: Normalizes creative/design evaluations behind
+  the existing `LLMProvider` contract.
+- **Structured I/O**: `DesignJudgmentRequest` captures judgment type, subject,
+  criteria, context, and metadata; `DesignJudgmentResult` returns stable
+  decision, rationale, confidence, provider status, and raw response.
+- **Provider swap ready**: Skills can use mock, Qwen, or future providers
+  without changing their public judgment contract.
+
 ## Task Completion Lifecycle
 
 A task can only be marked as **COMPLETE** after passing through these stages:
@@ -160,6 +169,7 @@ For the deterministic agent-cycle guard, run:
 ```bash
 python -m harness.tests.test_agent_cycle
 python -m harness.tests.test_design_agent_cycle_node
+python -m harness.tests.test_design_judgment
 ```
 
 ## Status

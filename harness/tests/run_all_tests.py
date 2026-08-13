@@ -48,6 +48,7 @@ class TestResults:
             "checkpoint": "Checkpoint",
     "events": "Events",
     "runtime": "Runtime",
+    "design_judgment": "Design Judgment",
     "agent_cycle": "Agent Cycle",
     "agent_cycle_node": "Agent Cycle Node",
     "error_recovery": "Error Recovery",
@@ -718,6 +719,13 @@ def run_all_tests():
     ])
 
     print()
+    print("--- Design Judgment Tests ---")
+    from harness.tests import test_design_judgment
+    run_design_judgment_tests = test_design_judgment.run_all_tests
+    design_judgment_passed = run_design_judgment_tests()
+    results.add("design_judgment", design_judgment_passed)
+
+    print()
     print("--- Agent Cycle Tests ---")
     from harness.tests.test_agent_cycle import run_all_tests as run_agent_cycle_tests
     agent_cycle_passed = run_agent_cycle_tests()
@@ -725,9 +733,8 @@ def run_all_tests():
 
     print()
     print("--- Agent Cycle Node Tests ---")
-    from harness.tests.test_design_agent_cycle_node import (
-        run_all_tests as run_agent_cycle_node_tests,
-    )
+    from harness.tests import test_design_agent_cycle_node
+    run_agent_cycle_node_tests = test_design_agent_cycle_node.run_all_tests
     agent_cycle_node_passed = run_agent_cycle_node_tests()
     results.add("agent_cycle_node", agent_cycle_node_passed)
 
