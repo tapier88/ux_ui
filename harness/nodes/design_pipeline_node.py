@@ -169,6 +169,23 @@ class DesignPipelineNode(BaseNode):
         except Exception as e:
             return self._failure(state.task_id, "governance_gate", e, stages)
 
+        # 7. Client Proposal - client-facing summary of the planned redesign.
+        try:
+            from harness.skills.client_proposal import client_proposal_skill
+
+            proposal_result = client_proposal_skill(
+                profile=profile_dict,
+                build_plan=plan_dict,
+                seo=seo_result,
+                governance=governance_result.to_dict(),
+            )
+            stages["client_proposal"] = {
+                "status": "completed",
+                "result": proposal_result,
+            }
+        except Exception as e:
+            return self._failure(state.task_id, "client_proposal", e, stages)
+
         if dry_run:
             return {
                 "node": "DesignPipelineNode",
@@ -177,6 +194,7 @@ class DesignPipelineNode(BaseNode):
                 "stages": stages,
                 "build_plan": plan_dict,
                 "seo": seo_result,
+                "proposal": proposal_result,
                 "governance": governance_result.to_dict(),
             }
 
@@ -188,6 +206,7 @@ class DesignPipelineNode(BaseNode):
                 "failed_stage": "governance_gate",
                 "stages": stages,
                 "seo": seo_result,
+                "proposal": proposal_result,
                 "governance": governance_result.to_dict(),
             }
 
@@ -221,6 +240,7 @@ class DesignPipelineNode(BaseNode):
             "status": "completed",
             "stages": stages,
             "seo": seo_result,
+            "proposal": proposal_result,
             "governance": governance_result.to_dict(),
             "report": report.to_dict(),
         }

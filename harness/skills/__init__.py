@@ -166,6 +166,21 @@ def register_seo_analysis_skill():
     )
 
 
+def register_client_proposal_skill():
+    """Register the client proposal skill"""
+    from harness.skills.client_proposal import client_proposal_skill
+
+    registry = get_skill_registry()
+
+    registry.register_skill(
+        name="client-proposal",
+        description="Generate client-facing redesign proposal markdown",
+        func=client_proposal_skill,
+        category="design",
+        version="1.0.0",
+    )
+
+
 # Auto-register test skill
 register_test_skill()
 
@@ -180,3 +195,9 @@ try:
     register_seo_analysis_skill()
 except Exception:
     pass  # May fail if seo_analysis module has issues
+
+# Auto-register client proposal skill
+try:
+    register_client_proposal_skill()
+except Exception:
+    pass  # May fail if client_proposal module has issues
