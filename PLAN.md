@@ -225,7 +225,7 @@ propios que protejan esos cambios.
       autonomía multi-iteración/client-facing. La base determinística ya
       existe en Fase 3, pero todavía no prospecta, aprende de referencias
       externas ni decide nuevos objetivos por sí misma.
-- [ ] Actualizar README/ARCHITECTURE.md (describen solo la V0.1 base, ya
+- [x] Actualizar README/ARCHITECTURE.md (describen solo la V0.1 base, ya
       desactualizados frente a lo que existe hoy)
 
 ---
@@ -376,6 +376,10 @@ propios que protejan esos cambios.
 - **2026-08-13** — Agregado `BaseDesignJudgmentEngine` con request/result
   estructurados para juicios creativos intercambiables entre proveedores
   `LLMProvider`. Verificado: `python -m harness.tests.test_design_judgment` y
+  `python -m harness.tests.run_all_tests`.
+- **2026-08-13** — `ARCHITECTURE.md` actualizado desde la foto V0.1 antigua al
+  estado real del harness: pipeline, gobernanza, memoria, persistencia Git,
+  ciclo agente, nodo de grafo y juicio creativo provider-agnostic. Verificado:
   `python -m harness.tests.run_all_tests`.
 
 ---
