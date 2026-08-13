@@ -194,6 +194,34 @@ class TestRealBuild(DesignPipelineIntegrationTestCase):
             f"Second run reported errors: {second['report'].get('errors')}",
         )
 
+    def test_08_project_brief_drives_brand_specific_plan(self):
+        """A verified merchant brief must reach the executable plan."""
+        from harness.nodes.design_pipeline_node import DesignPipelineNode
+        from harness.core.state import TaskState
+
+        state = TaskState(task_id="integration-project-brief")
+        state.inputs = {
+            "project_path": self.work_dir,
+            "url": "https://example.com",
+            "dry_run": True,
+            "project_brief": {
+                "project_name": "Verified Storefront",
+                "implementation": {"framework": "static-html"},
+                "brand": {"colors": {"primary": "#6A1648"}},
+                "branding": {"colors": {"primary": "#6A1648"}},
+                "navigation": {"items": [{"label": "Catalog", "href": "#catalog"}]},
+                "commerce": {"primary_cta": "Browse catalogue"},
+            },
+        }
+        result = DesignPipelineNode().execute(state)
+
+        self.assertEqual(result["status"], "dry_run_completed", result)
+        self.assertEqual(result["stages"]["project_brief"]["status"], "completed")
+        self.assertEqual(result["build_plan"]["project"], "Verified Storefront")
+        self.assertEqual(result["build_plan"]["framework"], "static-html")
+        self.assertEqual(result["build_plan"]["design_tokens"]["colors"]["primary"], "#6A1648")
+        self.assertEqual(result["build_plan"]["navigation"]["items"][0]["label"], "Catalog")
+
 
 def run_all_tests():
     loader = unittest.TestLoader()

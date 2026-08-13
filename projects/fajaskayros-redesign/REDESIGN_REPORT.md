@@ -37,3 +37,27 @@ comercial original.
 - Archivos creados: `index.html`, `styles.css`, `script.js`, `ORIGINAL_DATA.md`, `README.md`.
 - Imágenes principales verificadas contra el sitio original con respuesta HTTP 200.
 - Revisión estática local: estructura HTML y renderizador JS presentes.
+# Revisión integral — 2026-08-13
+
+La primera propuesta fue descartada. Esta versión se ejecutó mediante el flujo
+completo del harness y no como una maqueta aislada.
+
+## Resultado del ciclo
+
+- Contexto de marca y comercio registrado en `BRAND_CONTEXT.json`.
+- Auditoría, estrategia, recursos, plan de construcción, SEO, gobernanza,
+  propuesta y `site_builder` ejecutados.
+- Gobernanza: **100/100**; SEO: **100/100** (6/6 controles).
+- El plan usa `static-html`, CSS propio y JavaScript nativo: no fuerza React
+  ni dependencias ajenas sobre la tienda.
+- La portada pasó a una dirección editorial de moda: contraste negro/papel,
+  serif de alto impacto, producto como elemento protagonista y navegación
+  comercial más clara.
+- Se preservaron datos comerciales, categorías, enlaces a producto, WhatsApp,
+  dirección, redes y políticas. La vitrina contiene las 24 prendas visibles
+  registradas en el inventario de origen.
+
+## Pendiente explícito
+
+- Aplicar una referencia visual externa cuando el cliente la entregue.
+- Gmail continúa fuera de alcance por indicación del cliente.
