@@ -44,7 +44,7 @@ class TestResults:
             "nodes": "Nodes",
             "tools": "Tools",
             "skills": "Skills",
-            "qwen_adapter": "Qwen Adapter",
+            "local_provider": "Local Provider",
             "checkpoint": "Checkpoint",
     "events": "Events",
     "runtime": "Runtime",
@@ -385,7 +385,7 @@ def test_test_skill_registered():
 
 
 # =============================================================================
-# QWEN ADAPTER TESTS
+# LOCAL PROVIDER TESTS
 # =============================================================================
 
 def test_mock_provider():
@@ -415,10 +415,25 @@ def test_mock_generation():
 
 def test_provider_factory():
     """Test LLM provider factory"""
-    from harness.agents import LLMAdapterFactory, MockLLMProvider
+    from harness.agents import (
+        LLMAdapterFactory,
+        LLMRequest,
+        LocalInfrastructureProvider,
+        MockLLMProvider,
+    )
     
     provider = LLMAdapterFactory.create_provider("mock")
     assert isinstance(provider, MockLLMProvider)
+
+    local_provider = LLMAdapterFactory.create_provider("local")
+    assert isinstance(local_provider, LocalInfrastructureProvider)
+
+    legacy_provider = LLMAdapterFactory.create_provider("qwen")
+    assert isinstance(legacy_provider, LocalInfrastructureProvider)
+    assert legacy_provider.connect()
+    response = legacy_provider.generate(LLMRequest(prompt="No external Qwen"))
+    assert "LOCAL INFRA RESPONSE" in response.content
+    assert response.metadata["provider"] == "local-infrastructure"
 
 
 def test_default_provider():
@@ -452,19 +467,19 @@ def test_hello_node():
     assert "Hello" in result["greeting"]
 
 
-def test_qwen_test_node():
-    """Test QwenTestNode"""
-    from harness.nodes import qwen_test_node
+def test_local_llm_test_node():
+    """Test LocalLLMTestNode"""
+    from harness.nodes import local_llm_test_node
     from harness.core.state import get_state_manager
     
     get_state_manager().clear_all()
-    state = get_state_manager().create_state("qwen_test")
+    state = get_state_manager().create_state("local_llm_test")
     
-    node = qwen_test_node()
+    node = local_llm_test_node()
     result = node.execute(state)
     
     assert "response" in result
-    assert "QwenTestNode" in result["node"]
+    assert "LocalLLMTestNode" in result["node"]
 
 
 def test_tool_test_node():
@@ -506,23 +521,23 @@ def test_runtime_execution():
     from harness.core.graph import GraphBuilder
     from harness.core.runtime import GraphRuntime
     from harness.core.state import get_state_manager
-    from harness.nodes import hello_node, qwen_test_node, tool_test_node
+    from harness.nodes import hello_node, local_llm_test_node, tool_test_node
     
     get_state_manager().clear_all()
     
-    # Build test graph: START -> HELLO -> QWEN_TEST -> TOOL_TEST -> END
+    # Build test graph: START -> HELLO -> LOCAL_LLM_TEST -> TOOL_TEST -> END
     graph = GraphBuilder("runtime_test") \
         .add_start() \
         .build()
     
     # Add nodes with execute functions
     hello = hello_node()
-    qwen = qwen_test_node()
+    local_llm = local_llm_test_node()
     tool = tool_test_node()
     end_node = type('obj', (object,), {'id': 'END', 'node_type': type('obj', (object,), {'value': 'end'})()})()
     
     graph.add_node(hello)
-    graph.add_node(qwen)
+    graph.add_node(local_llm)
     graph.add_node(tool)
     graph.add_node(type('obj', (object,), {'id': 'END', 'name': 'End', 'node_type': type('NodeType', (), {'END': 'end'})})())
     
@@ -534,8 +549,8 @@ def test_runtime_execution():
     # Add edges
     from harness.core.graph import Edge
     graph.add_edge(Edge(source="START", target="HELLO_NODE"))
-    graph.add_edge(Edge(source="HELLO_NODE", target="QWEN_TEST_NODE"))
-    graph.add_edge(Edge(source="QWEN_TEST_NODE", target="TOOL_TEST_NODE"))
+    graph.add_edge(Edge(source="HELLO_NODE", target="LOCAL_LLM_TEST_NODE"))
+    graph.add_edge(Edge(source="LOCAL_LLM_TEST_NODE", target="TOOL_TEST_NODE"))
     graph.add_edge(Edge(source="TOOL_TEST_NODE", target="END"))
     
     runtime = GraphRuntime()
@@ -546,11 +561,11 @@ def test_runtime_execution():
 
 
 def test_full_test_graph():
-    """Test the complete test graph: START -> HELLO -> QWEN_TEST -> TOOL_TEST -> END"""
+    """Test the complete test graph: START -> HELLO -> LOCAL_LLM_TEST -> TOOL_TEST -> END"""
     from harness.core.graph import GraphBuilder, Node, NodeType, Edge
     from harness.core.runtime import execute_graph
     from harness.core.state import get_state_manager
-    from harness.nodes import hello_node, qwen_test_node, tool_test_node
+    from harness.nodes import hello_node, local_llm_test_node, tool_test_node
     
     get_state_manager().clear_all()
     
@@ -558,25 +573,25 @@ def test_full_test_graph():
     graph = GraphBuilder("test_graph") \
         .add_start() \
         .add_node("HELLO_NODE", "Hello Node") \
-        .add_node("QWEN_TEST_NODE", "Qwen Test Node") \
+        .add_node("LOCAL_LLM_TEST_NODE", "Local LLM Test Node") \
         .add_node("TOOL_TEST_NODE", "Tool Test Node") \
         .add_end() \
         .build()
     
     # Now set the execute functions for the nodes
     hello = hello_node()
-    qwen = qwen_test_node()
+    local_llm = local_llm_test_node()
     tool = tool_test_node()
     
     graph.nodes["HELLO_NODE"].execute_func = hello.execute_func
-    graph.nodes["QWEN_TEST_NODE"].execute_func = qwen.execute_func
+    graph.nodes["LOCAL_LLM_TEST_NODE"].execute_func = local_llm.execute_func
     graph.nodes["TOOL_TEST_NODE"].execute_func = tool.execute_func
     
     result = execute_graph(graph, "full_test_task")
     
     assert result.success == True, f"Graph execution failed: {result.errors}"
     assert "HELLO_NODE" in result.nodes_executed
-    assert "QWEN_TEST_NODE" in result.nodes_executed
+    assert "LOCAL_LLM_TEST_NODE" in result.nodes_executed
     assert "TOOL_TEST_NODE" in result.nodes_executed
 
 
@@ -698,8 +713,8 @@ def run_all_tests():
     ])
     
     print()
-    print("--- Qwen Adapter Tests ---")
-    run_group("qwen_adapter", [
+    print("--- Local Provider Tests ---")
+    run_group("local_provider", [
         ("test_mock_provider", test_mock_provider),
         ("test_mock_generation", test_mock_generation),
         ("test_provider_factory", test_provider_factory),
@@ -710,7 +725,7 @@ def run_all_tests():
     print("--- Node Tests ---")
     run_group("nodes", [
         ("test_hello_node", test_hello_node),
-        ("test_qwen_test_node", test_qwen_test_node),
+        ("test_local_llm_test_node", test_local_llm_test_node),
         ("test_tool_test_node", test_tool_test_node),
         ("test_skill_test_node", test_skill_test_node),
     ])

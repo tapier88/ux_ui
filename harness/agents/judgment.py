@@ -1,9 +1,9 @@
 """
 Provider-agnostic design judgment engine.
 
-This module generalizes the Qwen adapter pattern for creative/design judgment
+This module generalizes the local provider adapter pattern for creative/design judgment
 work. Skills can depend on this stable engine contract while swapping the
-underlying LLM provider between mock, Qwen, or any future provider that
+underlying LLM provider between mock, local infrastructure, or any future provider that
 implements `LLMProvider`.
 """
 from dataclasses import dataclass, field

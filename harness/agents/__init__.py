@@ -1,5 +1,9 @@
 """
-Qwen Adapter - Abstraction layer for Qwen-Agent LLM provider
+Agent provider abstractions.
+
+The harness runs on local infrastructure by default. Provider classes expose a
+stable interface for tests and future adapters, but no external Qwen connection
+is required or planned for normal operation.
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -123,77 +127,51 @@ class MockLLMProvider(LLMProvider):
         return self._call_count
 
 
-class QwenAgentProvider(LLMProvider):
-    """Qwen-Agent LLM provider implementation"""
-    
-    def __init__(self, api_key: Optional[str] = None, 
-                 endpoint: Optional[str] = None,
-                 model: str = "qwen-max"):
-        self.api_key = api_key
-        self.endpoint = endpoint
+class LocalInfrastructureProvider(MockLLMProvider):
+    """
+    Local provider used by this harness.
+
+    It deliberately does not require credentials, endpoints, or remote Qwen
+    infrastructure. The implementation remains deterministic so tests and agent
+    workflows are reproducible inside this workspace.
+    """
+
+    def __init__(self, model: str = "local-codex-infra"):
+        super().__init__()
         self.model = model
-        self._status = ProviderStatus.DISCONNECTED
-        self._client = None
-        
-        # Check if we have credentials
-        if not api_key or not endpoint:
-            self._status = ProviderStatus.ERROR
-    
-    def connect(self) -> bool:
-        """Connect to Qwen-Agent service"""
-        if not self.api_key or not self.endpoint:
-            self._status = ProviderStatus.ERROR
-            return False
-        
-        try:
-            # NOTE: In a real implementation, this would initialize the Qwen-Agent client
-            # Example:
-            # from qwen_agent import Client
-            # self._client = Client(api_key=self.api_key, endpoint=self.endpoint)
-            
-            # For now, we'll fall back to mock if no real client is available
-            self._status = ProviderStatus.ERROR
-            return False
-            
-        except Exception as e:
-            self._status = ProviderStatus.ERROR
-            return False
-    
-    def disconnect(self):
-        """Disconnect from Qwen-Agent service"""
-        self._client = None
-        self._status = ProviderStatus.DISCONNECTED
-    
-    def is_connected(self) -> bool:
-        """Check if connected to Qwen-Agent service"""
-        return self._status == ProviderStatus.CONNECTED
-    
+
     def generate(self, request: LLMRequest) -> LLMResponse:
-        """Generate response from Qwen-Agent"""
-        if not self.is_connected():
-            raise RuntimeError("Not connected to Qwen-Agent service")
-        
-        try:
-            # NOTE: Real implementation would call Qwen-Agent here
-            # response = self._client.generate(
-            #     prompt=request.prompt,
-            #     system_prompt=request.system_prompt,
-            #     temperature=request.temperature,
-            #     max_tokens=request.max_tokens
-            # )
-            
-            # Placeholder - should not reach here in mock mode
-            return LLMResponse(
-                content="[QWEN RESPONSE] This would be a real Qwen response",
-                metadata={"model": self.model, "provider": "qwen-agent"}
-            )
-            
-        except Exception as e:
-            raise RuntimeError(f"Qwen-Agent generation failed: {str(e)}")
-    
-    def get_status(self) -> ProviderStatus:
-        """Get Qwen-Agent provider status"""
-        return self._status
+        self._call_count += 1
+        content = (
+            "[LOCAL INFRA RESPONSE] "
+            f"Processed prompt locally: '{request.prompt[:50]}...'"
+        )
+        return LLMResponse(
+            content=content,
+            usage={
+                "prompt_tokens": len(request.prompt.split()),
+                "completion_tokens": len(content.split()),
+                "total_tokens": len(request.prompt.split()) + len(content.split()),
+            },
+            metadata={
+                "model": self.model,
+                "provider": "local-infrastructure",
+                "call_number": self._call_count,
+            },
+        )
+
+
+class QwenAgentProvider(LocalInfrastructureProvider):
+    """
+    Backward-compatible alias for older code paths.
+
+    The project no longer connects to Qwen. Instantiating this class runs on the
+    local infrastructure provider so legacy references do not break while the
+    public direction remains local-first.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(model=kwargs.get("model", "local-codex-infra"))
 
 
 class LLMAdapterFactory:
@@ -206,12 +184,12 @@ class LLMAdapterFactory:
         """Create an LLM provider instance"""
         if provider_type == "mock":
             return MockLLMProvider()
-        elif provider_type == "qwen":
-            return QwenAgentProvider(
-                api_key=kwargs.get("api_key"),
-                endpoint=kwargs.get("endpoint"),
-                model=kwargs.get("model", "qwen-max")
+        elif provider_type in ("local", "local-infrastructure"):
+            return LocalInfrastructureProvider(
+                model=kwargs.get("model", "local-codex-infra")
             )
+        elif provider_type == "qwen":
+            return QwenAgentProvider(model=kwargs.get("model", "local-codex-infra"))
         else:
             raise ValueError(f"Unknown provider type: {provider_type}")
     

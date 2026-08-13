@@ -161,13 +161,14 @@ instead of invented numbers.
 
 ## Agents
 
-### LLM Provider Adapter (`harness/agents/__init__.py`)
+### Local Provider Adapter (`harness/agents/__init__.py`)
 
 The provider layer remains interchangeable:
 
 - `LLMProvider`: abstract provider contract.
 - `MockLLMProvider`: default test-safe provider.
-- `QwenAgentProvider`: placeholder for real Qwen credentials.
+- `LocalInfrastructureProvider`: deterministic provider for this workspace.
+- `QwenAgentProvider`: backward-compatible alias to local infrastructure only.
 - `LLMAdapterFactory`: provider creation and caching.
 
 ### BaseDesignJudgmentEngine (`harness/agents/judgment.py`)
@@ -180,7 +181,7 @@ Creative judgments now have a provider-agnostic contract:
 - `BaseDesignJudgmentEngine`: builds structured prompts, calls any
   `LLMProvider`, and normalizes the response.
 
-This lets future skills swap mock/Qwen/other providers without changing their
+This lets future skills swap mock/local/other providers without changing their
 public API.
 
 ### DeterministicDesignAgent (`harness/agents/design_cycle.py`)
@@ -281,10 +282,8 @@ design judgment base all have automated coverage.
 
 ## Known Remaining Gaps
 
-- Real `QwenAgentProvider.connect()` and `generate()` still need a concrete API
-  client and credentials.
-- Prospecting, external-reference learning, client-facing proposal generation,
-  and outbound delivery are not implemented yet.
+- Outbound delivery still needs an authorized channel before it can send
+  email, Gmail, Telegram, or CRM messages.
 - SEO analysis is deterministic/local. It does not yet fetch live SERP,
   Lighthouse, schema.org, or crawler data.
 
