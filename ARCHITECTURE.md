@@ -98,6 +98,8 @@ design-relevant skills include:
 
 - `prospecting`: ranks provided candidate websites by redesign opportunity
   without scraping or contacting leads.
+- `reference_learning`: converts supplied external references into reusable
+  design lessons and recommendations.
 - `website_intelligence`: inspects project structure and extracts a design
   profile.
 - `redesign_intelligence`: decides what to preserve, remove, improve, and how to
@@ -261,6 +263,7 @@ python -m harness.tests.test_governance
 python -m harness.tests.test_seo_analysis
 python -m harness.tests.test_client_proposal
 python -m harness.tests.test_prospecting
+python -m harness.tests.test_reference_learning
 python -m harness.tests.test_runtime_fixes
 python -m harness.tests.test_memory
 python -m harness.tests.test_checkpoint_persistence

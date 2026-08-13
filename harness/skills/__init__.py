@@ -196,6 +196,21 @@ def register_prospecting_skill():
     )
 
 
+def register_reference_learning_skill():
+    """Register the reference learning skill"""
+    from harness.skills.reference_learning import reference_learning_skill
+
+    registry = get_skill_registry()
+
+    registry.register_skill(
+        name="reference-learning",
+        description="Extract reusable design lessons from supplied references",
+        func=reference_learning_skill,
+        category="design",
+        version="1.0.0",
+    )
+
+
 # Auto-register test skill
 register_test_skill()
 
@@ -222,3 +237,9 @@ try:
     register_prospecting_skill()
 except Exception:
     pass  # May fail if prospecting module has issues
+
+# Auto-register reference learning skill
+try:
+    register_reference_learning_skill()
+except Exception:
+    pass  # May fail if reference_learning module has issues
