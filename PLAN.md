@@ -23,6 +23,7 @@ python -m harness.tests.test_agent_cycle
 python -m harness.tests.test_design_agent_cycle_node
 python -m harness.tests.test_design_judgment
 python -m harness.tests.test_client_proposal
+python -m harness.tests.test_prospecting
 ```
 Si alguno falla, este documento está desactualizado en ese punto — confía en el
 test, actualiza el documento, no al revés.
@@ -216,7 +217,7 @@ propios que protejan esos cambios.
 
 ## Fase 4 — La visión completa (iniciada)
 
-- [ ] Prospección: buscar sitios candidatos con diseño anticuado
+- [x] Prospección: buscar sitios candidatos con diseño anticuado
 - [x] Análisis SEO explícito (hoy solo hay análisis de diseño/UX)
 - [ ] Aprendizaje por referencia externa: consultar repos/diseños reales antes
       de decidir (evita el "look genérico de IA")
@@ -399,6 +400,10 @@ propios que protejan esos cambios.
   ya estaba fusionado como PR #19, y el PR #20 de navegación/interacciones quedó
   cerrado como obsoleto porque fue reemplazado por PR #22 y trabajos posteriores.
   Verificado: `gh pr view 19`, `gh pr view 20` y `python -m harness.tests.run_all_tests`.
+- **2026-08-13** — Agregada skill `prospecting` para rankear candidatos por
+  oportunidad de rediseño usando señales locales auditables. No scrapea ni
+  contacta leads. Verificado: `python -m harness.tests.test_prospecting` y
+  `python -m harness.tests.run_all_tests`.
 
 ---
 

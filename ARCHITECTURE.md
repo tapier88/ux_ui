@@ -96,6 +96,8 @@ Executes graphs with bounded safety controls.
 Skills are reusable capabilities registered in the local registry. Current
 design-relevant skills include:
 
+- `prospecting`: ranks provided candidate websites by redesign opportunity
+  without scraping or contacting leads.
 - `website_intelligence`: inspects project structure and extracts a design
   profile.
 - `redesign_intelligence`: decides what to preserve, remove, improve, and how to
@@ -258,6 +260,7 @@ python -m harness.tests.test_color_intelligence
 python -m harness.tests.test_governance
 python -m harness.tests.test_seo_analysis
 python -m harness.tests.test_client_proposal
+python -m harness.tests.test_prospecting
 python -m harness.tests.test_runtime_fixes
 python -m harness.tests.test_memory
 python -m harness.tests.test_checkpoint_persistence
