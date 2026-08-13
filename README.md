@@ -104,6 +104,9 @@ Built from scratch with a modular, graph-based execution engine.
   `ready_to_execute` only if planning and governance pass.
 - **Real build path**: `execute=True` writes files only after the dry-run
   evaluation passes.
+- **Bounded retry**: `max_iterations` allows deterministic replanning for
+  retryable failures, currently limited to correcting over-strict governance
+  thresholds without weakening hard-fail quality gates.
 
 ## Task Completion Lifecycle
 

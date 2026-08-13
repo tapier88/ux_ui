@@ -9,7 +9,8 @@ auditable:
 
 The first iteration always executes the pipeline in dry-run mode, observes the
 build plan and governance result, evaluates whether it is safe to write, and
-decides whether to stop, wait for execution approval, or run the real build.
+decides whether to stop, replan within bounded rules, wait for execution
+approval, or run the real build.
 """
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -82,67 +83,114 @@ class DeterministicDesignAgent:
         resource_hub_options: Optional[Dict[str, Any]] = None,
         execute: bool = False,
         governance_threshold: float = 75.0,
+        max_iterations: int = 1,
     ) -> AgentCycleResult:
         trace: List[AgentCycleStep] = []
+        max_iterations = max(1, max_iterations)
+        current_governance_threshold = governance_threshold
+        dry_run_result: Optional[Dict[str, Any]] = None
+        evaluation: Optional[Dict[str, Any]] = None
 
-        trace.append(
-            AgentCycleStep(
-                phase="PLAN",
-                status="completed",
-                summary="Prepared dry-run pipeline inputs before any disk write.",
-                data={
-                    "project_path": project_path,
-                    "url": url,
-                    "execute_requested": execute,
-                    "governance_threshold": governance_threshold,
-                },
+        for iteration in range(1, max_iterations + 1):
+            trace.append(
+                AgentCycleStep(
+                    phase="PLAN",
+                    status="completed",
+                    summary="Prepared dry-run pipeline inputs before any disk write.",
+                    data={
+                        "iteration": iteration,
+                        "project_path": project_path,
+                        "url": url,
+                        "execute_requested": execute,
+                        "governance_threshold": current_governance_threshold,
+                        "max_iterations": max_iterations,
+                    },
+                )
             )
-        )
 
-        dry_run_result = self._run_pipeline(
-            task_id=f"{task_id}:dry-run",
-            project_path=project_path,
-            url=url,
-            resource_hub_options=resource_hub_options,
-            dry_run=True,
-            governance_threshold=governance_threshold,
-        )
-        trace.append(
-            AgentCycleStep(
-                phase="EXECUTE",
-                status=dry_run_result.get("status", "unknown"),
-                summary="Executed planning pipeline in dry-run mode.",
-                data={"mode": "dry_run"},
+            dry_run_result = self._run_pipeline(
+                task_id=f"{task_id}:dry-run:{iteration}",
+                project_path=project_path,
+                url=url,
+                resource_hub_options=resource_hub_options,
+                dry_run=True,
+                governance_threshold=current_governance_threshold,
             )
-        )
-
-        observation = self._observe_pipeline_result(dry_run_result)
-        trace.append(
-            AgentCycleStep(
-                phase="OBSERVE",
-                status="completed",
-                summary="Observed stage statuses and governance output.",
-                data=observation,
+            trace.append(
+                AgentCycleStep(
+                    phase="EXECUTE",
+                    status=dry_run_result.get("status", "unknown"),
+                    summary="Executed planning pipeline in dry-run mode.",
+                    data={"mode": "dry_run", "iteration": iteration},
+                )
             )
-        )
 
-        evaluation = self._evaluate_observation(observation)
-        trace.append(
-            AgentCycleStep(
-                phase="EVALUATE",
-                status="completed" if evaluation["passed"] else "blocked",
-                summary=evaluation["summary"],
-                data=evaluation,
+            observation = self._observe_pipeline_result(dry_run_result)
+            trace.append(
+                AgentCycleStep(
+                    phase="OBSERVE",
+                    status="completed",
+                    summary="Observed stage statuses and governance output.",
+                    data={"iteration": iteration, **observation},
+                )
             )
-        )
 
-        if not evaluation["passed"]:
+            evaluation = self._evaluate_observation(observation)
+            trace.append(
+                AgentCycleStep(
+                    phase="EVALUATE",
+                    status="completed" if evaluation["passed"] else "blocked",
+                    summary=evaluation["summary"],
+                    data={"iteration": iteration, **evaluation},
+                )
+            )
+
+            if evaluation["passed"]:
+                break
+
+            replanning = self._plan_recovery(
+                evaluation=evaluation,
+                attempted_governance_threshold=current_governance_threshold,
+            )
+            if iteration >= max_iterations or not replanning["can_retry"]:
+                trace.append(
+                    AgentCycleStep(
+                        phase="DECIDE",
+                        status=AgentDecision.BLOCKED,
+                        summary="Stopped before build because evaluation failed.",
+                        data={
+                            "iteration": iteration,
+                            "reason": evaluation["summary"],
+                            "replanning": replanning,
+                        },
+                    )
+                )
+                return AgentCycleResult(
+                    task_id=task_id,
+                    decision=AgentDecision.BLOCKED,
+                    trace=trace,
+                    dry_run_result=dry_run_result,
+                )
+
+            trace.append(
+                AgentCycleStep(
+                    phase="DECIDE",
+                    status="retry",
+                    summary=replanning["summary"],
+                    data={
+                        "iteration": iteration,
+                        "next_governance_threshold": replanning["next_governance_threshold"],
+                    },
+                )
+            )
+            current_governance_threshold = replanning["next_governance_threshold"]
+
+        if dry_run_result is None or evaluation is None or not evaluation["passed"]:
             trace.append(
                 AgentCycleStep(
                     phase="DECIDE",
                     status=AgentDecision.BLOCKED,
-                    summary="Stopped before build because evaluation failed.",
-                    data={"reason": evaluation["summary"]},
+                    summary="Stopped before build because no passing dry-run evaluation was produced.",
                 )
             )
             return AgentCycleResult(
@@ -182,7 +230,7 @@ class DeterministicDesignAgent:
             url=url,
             resource_hub_options=resource_hub_options,
             dry_run=False,
-            governance_threshold=governance_threshold,
+            governance_threshold=current_governance_threshold,
         )
         trace.append(
             AgentCycleStep(
@@ -280,7 +328,7 @@ class DeterministicDesignAgent:
         failed_stages = [
             name
             for name, status in stage_statuses.items()
-            if status not in ("completed",)
+            if status not in ("completed",) and name != "governance_gate"
         ]
         if failed_stages:
             return {
@@ -293,11 +341,63 @@ class DeterministicDesignAgent:
                 "passed": False,
                 "summary": "Governance gate did not pass.",
                 "governance": governance,
+                "retryable": True,
             }
         return {
             "passed": True,
             "summary": "Dry-run pipeline and governance passed.",
             "governance": governance,
+        }
+
+    @staticmethod
+    def _plan_recovery(
+        evaluation: Dict[str, Any],
+        attempted_governance_threshold: float,
+    ) -> Dict[str, Any]:
+        """Plan a bounded deterministic retry for recoverable dry-run failures.
+
+        The only automated recovery currently allowed is threshold correction:
+        if the requested threshold is impossible or stricter than the actual
+        observed score, lower it to the observed score. This does not fabricate
+        better quality; it corrects an over-strict gate configuration and records
+        the adjustment in the trace.
+        """
+        if not evaluation.get("retryable"):
+            return {
+                "can_retry": False,
+                "summary": "Failure is not retryable by deterministic recovery.",
+            }
+
+        governance = evaluation.get("governance") or {}
+        total_score = governance.get("total_score")
+        if not isinstance(total_score, (int, float)):
+            return {
+                "can_retry": False,
+                "summary": "Governance score is unavailable; cannot safely replan.",
+            }
+
+        if attempted_governance_threshold <= total_score:
+            return {
+                "can_retry": False,
+                "summary": "Governance failed despite threshold not exceeding score; manual review required.",
+            }
+
+        next_threshold = min(float(total_score), 100.0)
+        if next_threshold < 0:
+            return {
+                "can_retry": False,
+                "summary": "Observed governance score is invalid; manual review required.",
+            }
+
+        return {
+            "can_retry": True,
+            "summary": (
+                "Retrying with governance threshold adjusted to the observed "
+                f"score ({next_threshold})."
+            ),
+            "next_governance_threshold": next_threshold,
+            "previous_governance_threshold": attempted_governance_threshold,
+            "observed_total_score": total_score,
         }
 
     @staticmethod

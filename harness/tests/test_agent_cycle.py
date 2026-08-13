@@ -101,6 +101,49 @@ class TestDeterministicDesignAgent(AgentCycleTestCase):
         self.assertEqual(result.trace[-1].phase, "DECIDE")
         self.assertEqual(result.trace[-1].status, AgentDecision.BLOCKED)
 
+    def test_retry_can_recover_from_over_strict_governance_threshold(self):
+        from harness.agents import AgentDecision, DeterministicDesignAgent
+
+        result = DeterministicDesignAgent().run(
+            project_path=self.work_dir,
+            task_id="agent-cycle-retry",
+            url="https://example.com",
+            execute=False,
+            governance_threshold=101.0,
+            max_iterations=2,
+        )
+
+        self.assertEqual(result.decision, AgentDecision.READY_TO_EXECUTE)
+        self.assertEqual(
+            [step.status for step in result.trace if step.phase == "DECIDE"],
+            ["retry", AgentDecision.READY_TO_EXECUTE],
+        )
+        plan_steps = [step for step in result.trace if step.phase == "PLAN"]
+        self.assertEqual(len(plan_steps), 2)
+        self.assertLess(
+            plan_steps[1].data["governance_threshold"],
+            plan_steps[0].data["governance_threshold"],
+        )
+
+    def test_retry_limit_blocks_when_no_passing_iteration_exists(self):
+        from harness.agents import AgentDecision, DeterministicDesignAgent
+
+        result = DeterministicDesignAgent().run(
+            project_path=self.work_dir,
+            task_id="agent-cycle-retry-limit",
+            url="https://example.com",
+            execute=False,
+            governance_threshold=101.0,
+            max_iterations=1,
+        )
+
+        self.assertEqual(result.decision, AgentDecision.BLOCKED)
+        self.assertEqual(
+            [step.phase for step in result.trace],
+            ["PLAN", "EXECUTE", "OBSERVE", "EVALUATE", "DECIDE"],
+        )
+        self.assertEqual(result.trace[-1].status, AgentDecision.BLOCKED)
+
 
 def run_all_tests():
     loader = unittest.TestLoader()

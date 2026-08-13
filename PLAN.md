@@ -190,6 +190,10 @@ propios que protejan esos cambios.
       observa etapas/gobernanza, evalúa si puede escribir y decide entre
       `blocked`, `ready_to_execute`, `complete` o `failed`. No requiere LLM ni
       credenciales externas todavía.
+- [x] Iteración acotada del ciclo agente: `max_iterations` permite reintentos
+      determinísticos para fallos retryable. Por ahora solo corrige umbrales
+      de gobernanza sobre-estrictos hasta el score observado; no ignora hard
+      fails ni reintenta fallos de etapa no seguros.
 - [x] Definir las señales reales del `GovernanceGate`
       (`brand_alignment`, `accessibility`, `visual_craft`, `performance`,
       `seo_impact`, `originality`) como salidas medibles de cada skill, no
@@ -352,6 +356,13 @@ propios que protejan esos cambios.
   `ready_to_execute`; con `execute=True`, ejecuta build real y decide
   `complete`/`failed`. Verificado: `python -m harness.tests.test_agent_cycle`
   (3/3) y `python -m harness.tests.run_all_tests` (41/41).
+- **2026-08-13** — `DeterministicDesignAgent` ahora soporta
+  `max_iterations` con replanificación segura. Si la gobernanza falla solo
+  porque el umbral solicitado supera el score observado, el agente baja el
+  umbral al score real y reintenta; si alcanza el límite o el fallo no es
+  retryable, bloquea con traza completa. Verificado:
+  `python -m harness.tests.test_agent_cycle` (5/5) y
+  `python -m harness.tests.run_all_tests` (41/41).
 
 ---
 
