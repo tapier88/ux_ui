@@ -3,10 +3,11 @@ State Engine - Shared state management across nodes
 """
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
-from datetime import datetime
 import json
 import copy
 import uuid
+
+from harness.core.time import utc_now_iso
 
 
 @dataclass
@@ -40,8 +41,8 @@ class TaskState:
     history: List[Dict[str, Any]] = field(default_factory=list)
     errors: List[Dict[str, Any]] = field(default_factory=list)
     checkpoints: List[Checkpoint] = field(default_factory=list)
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=utc_now_iso)
+    updated_at: str = field(default_factory=utc_now_iso)
     
     # Git persistence fields
     git_commit_sha: Optional[str] = None
@@ -74,21 +75,21 @@ class TaskState:
     def add_to_history(self, action: str, data: Optional[Dict[str, Any]] = None):
         """Add an entry to the history"""
         self.history.append({
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
             "action": action,
             "data": data or {}
         })
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = utc_now_iso()
     
     def add_error(self, node_id: str, error: str, details: Optional[Dict[str, Any]] = None):
         """Record an error"""
         self.errors.append({
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now_iso(),
             "node_id": node_id,
             "error": error,
             "details": details or {}
         })
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = utc_now_iso()
     
     def create_checkpoint(self, node_id: str) -> Checkpoint:
         """Create a checkpoint of the current state.
@@ -113,7 +114,7 @@ class TaskState:
             checkpoint_id=checkpoint_id,
             task_id=self.task_id,
             node_id=node_id,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=utc_now_iso(),
             state_snapshot=snapshot
         )
         self.checkpoints.append(checkpoint)
@@ -134,7 +135,7 @@ class TaskState:
         self.current_node = checkpoint.state_snapshot.get("current_node", self.current_node)
         self.status = checkpoint.state_snapshot.get("status", self.status)
         self.errors = checkpoint.state_snapshot.get("errors", self.errors)
-        self.updated_at = datetime.utcnow().isoformat()
+        self.updated_at = utc_now_iso()
     
     def get_last_checkpoint(self) -> Optional[Checkpoint]:
         """Get the last checkpoint"""
@@ -179,7 +180,7 @@ class StateManager:
             for key, value in updates.items():
                 if hasattr(state, key):
                     setattr(state, key, value)
-            state.updated_at = datetime.utcnow().isoformat()
+            state.updated_at = utc_now_iso()
         return state
     
     def delete_state(self, task_id: str):

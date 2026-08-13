@@ -4,11 +4,11 @@ Git Persistence - Handles commit creation and Git state management
 import subprocess
 import os
 from typing import Optional, List, Tuple
-from datetime import datetime
 
 from harness.core.git.models import CommitInfo, TaskPersistenceState, PublicationStatus
 from harness.core.git.inspector import GitInspector
 from harness.core.events import emit_event, EventType
+from harness.core.time import utc_now_iso
 
 
 class GitPersistence:
@@ -87,7 +87,7 @@ class GitPersistence:
                         sha=sha,
                         message=msg or "",
                         author="Harness <harness@local>",
-                        timestamp=ts or datetime.utcnow().isoformat(),
+                        timestamp=ts or utc_now_iso(),
                         branch=branch or "",
                     )
             return None
@@ -106,7 +106,7 @@ class GitPersistence:
             sha=sha or "",
             message=message,
             author="Harness <harness@local>",
-            timestamp=ts or datetime.utcnow().isoformat(),
+            timestamp=ts or utc_now_iso(),
             branch=branch or "",
             files_changed=files_changed,
         )

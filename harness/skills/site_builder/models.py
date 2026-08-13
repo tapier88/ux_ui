@@ -4,7 +4,8 @@ Models for Site Builder Skill
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from enum import Enum
-from datetime import datetime
+
+from harness.core.time import utc_now_iso
 
 
 class Framework(Enum):
@@ -355,7 +356,7 @@ class BuildReport:
     """Final build report"""
     project: str
     task_id: str
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=utc_now_iso)
     files_created: List[str] = field(default_factory=list)
     files_modified: List[str] = field(default_factory=list)
     files_removed: List[str] = field(default_factory=list)

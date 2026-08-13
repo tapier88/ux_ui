@@ -3,7 +3,6 @@ Test suite for Harness V0.1
 """
 import sys
 import unittest
-from datetime import datetime
 
 
 def _configure_stdout():

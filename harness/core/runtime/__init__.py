@@ -5,7 +5,6 @@ from typing import Dict, Any, Optional, List, Callable
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
-from datetime import datetime
 
 from harness.core.graph import Graph, Node, NodeType
 from harness.core.state import TaskState, StateManager, get_state_manager
@@ -13,6 +12,7 @@ from harness.core.events import (
     EventType, EventEmitter, Event, 
     get_emitter, emit_event
 )
+from harness.core.time import utc_now_iso
 
 
 class NodeTimeoutError(Exception):
@@ -46,7 +46,7 @@ class ExecutionResult:
         self.task_id = task_id
         self.nodes_executed: List[str] = []
         self.errors: List[Dict[str, Any]] = []
-        self.start_time: str = datetime.utcnow().isoformat()
+        self.start_time: str = utc_now_iso()
         self.end_time: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
@@ -247,7 +247,7 @@ class GraphRuntime:
         finally:
             self._clear_cancelled(task_id)
 
-        result.end_time = datetime.utcnow().isoformat()
+        result.end_time = utc_now_iso()
         return result
     
     def _execute_node(self, node: Node, state: TaskState, 
@@ -380,9 +380,9 @@ class GraphRuntime:
         
         # Default behavior for START/END nodes
         if node.node_type == NodeType.START:
-            return {"started": True, "timestamp": datetime.utcnow().isoformat()}
+            return {"started": True, "timestamp": utc_now_iso()}
         elif node.node_type == NodeType.END:
-            return {"ended": True, "timestamp": datetime.utcnow().isoformat()}
+            return {"ended": True, "timestamp": utc_now_iso()}
         
         return None
     
