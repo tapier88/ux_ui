@@ -44,6 +44,12 @@ class DesignExecutionPlanner:
         
         # Initialize plan with basic configuration
         plan = DesignBuildPlan(project=project_name)
+
+        implementation = (design_profile or {}).get("implementation", {})
+        if implementation:
+            plan.framework = implementation.get("framework", plan.framework)
+            plan.styling_system = implementation.get("styling_system", plan.styling_system)
+            plan.component_system = implementation.get("component_system", plan.component_system)
         
         # Apply design profile settings
         if design_profile:
@@ -91,7 +97,7 @@ class DesignExecutionPlanner:
         plan.motion_plan = self._generate_motion_plan(design_profile, resource_report)
 
         # Generate executable navigation and interaction contracts for SiteBuilder
-        plan.navigation = self._generate_navigation_plan(plan)
+        plan.navigation = self._generate_navigation_plan(plan, design_profile)
         plan.interactions = self._generate_interactions_plan(plan.motion_plan)
         
         # Generate responsive plan
@@ -225,18 +231,22 @@ class DesignExecutionPlanner:
         redesign_strategy: Optional[Dict[str, Any]]
     ):
         """Generate page plans"""
-        # Default home page
+        commerce = (design_profile or {}).get("commerce", {})
+        brand = (design_profile or {}).get("brand", {})
+        navigation = (design_profile or {}).get("navigation", {})
+        sections = (design_profile or {}).get("experience", {}).get("sections")
+        # Default home page, enriched from the verified project brief when present.
         home_page = PagePlan(
             route="/",
-            purpose="Homepage - Main landing page",
-            sections=["hero", "trust", "benefits", "product", "testimonials", "cta", "footer"],
-            primary_cta="Get Started",
-            secondary_cta="Learn More",
+            purpose=commerce.get("homepage_purpose", "Homepage - Main landing page"),
+            sections=sections or ["hero", "trust", "benefits", "product", "testimonials", "cta", "footer"],
+            primary_cta=commerce.get("primary_cta", "Get Started"),
+            secondary_cta=commerce.get("secondary_cta", "Learn More"),
             navigation="main",
             footer="main",
             seo_requirements={
-                "title": "Home",
-                "description": "Welcome to our site",
+                "title": commerce.get("seo_title", brand.get("name", "Home")),
+                "description": commerce.get("seo_description", "Welcome to our site"),
                 "og_image": True
             }
         )
@@ -250,12 +260,13 @@ class DesignExecutionPlanner:
     ):
         """Generate section plans"""
         layout_type = self._determine_layout_type(design_profile)
+        commerce = (design_profile or {}).get("commerce", {})
         
         # Hero section
         hero = SectionPlan(
             id="hero",
-            name="Hero",
-            purpose="Above the fold content with primary CTA",
+            name=commerce.get("hero_name", "Hero"),
+            purpose=commerce.get("hero_purpose", "Above the fold content with primary CTA"),
             layout=layout_type,
             components=["headline", "subheadline", "cta-button", "hero-image"],
             background={"type": "gradient"},
@@ -375,6 +386,8 @@ class DesignExecutionPlanner:
         
         if design_profile:
             branding = design_profile.get("branding", {})
+            if not branding:
+                branding = design_profile.get("brand", {})
             colors = branding.get("colors", {})
             
             if colors.get("primary"):
@@ -404,7 +417,9 @@ class DesignExecutionPlanner:
         
         return motions
 
-    def _generate_navigation_plan(self, plan: DesignBuildPlan) -> Dict[str, Any]:
+    def _generate_navigation_plan(
+        self, plan: DesignBuildPlan, design_profile: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """Generate the site navigation contract consumed by SiteBuilder."""
         pages = [page.to_dict() for page in plan.pages]
         nav_component = next(
@@ -416,18 +431,21 @@ class DesignExecutionPlanner:
             None,
         )
 
+        brief_navigation = (design_profile or {}).get("navigation", {})
+        items = brief_navigation.get("items") or [
+            {"label": "Home", "href": "/"},
+            {"label": "Benefits", "href": "#benefits"},
+            {"label": "Product", "href": "#product"},
+            {"label": "Testimonials", "href": "#testimonials"},
+        ]
+
         return {
             "component": nav_component,
             "landmarks": {
                 "role": "navigation",
                 "aria_label": "Main navigation",
             },
-            "items": [
-                {"label": "Home", "href": "/"},
-                {"label": "Benefits", "href": "#benefits"},
-                {"label": "Product", "href": "#product"},
-                {"label": "Testimonials", "href": "#testimonials"},
-            ],
+            "items": items,
             "primary_cta": pages[0].get("primary_cta") if pages else "Get Started",
         }
 

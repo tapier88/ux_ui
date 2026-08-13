@@ -31,6 +31,9 @@ Usage inside a graph:
         print(result["report"])
 """
 from typing import Any, Optional
+from copy import deepcopy
+import json
+from pathlib import Path
 
 from harness.core.graph import NodeType
 from harness.core.state import TaskState
@@ -84,7 +87,17 @@ class DesignPipelineNode(BaseNode):
             inspector = WebsiteInspector(project_path=project_path)
             profile = inspector.inspect(url=url)
             profile_dict = profile.to_dict()
+            project_brief = state.inputs.get("project_brief") or self._load_project_brief(project_path)
+            if project_brief:
+                profile_dict = self._enrich_profile_with_project_brief(
+                    profile_dict, project_brief
+                )
             stages["website_intelligence"] = {"status": "completed"}
+            if project_brief:
+                stages["project_brief"] = {
+                    "status": "completed",
+                    "evidence": "Brand, catalogue, conversion and implementation constraints applied",
+                }
         except Exception as e:
             return self._failure(state.task_id, "website_intelligence", e, stages)
 
@@ -378,6 +391,34 @@ class DesignPipelineNode(BaseNode):
         if not checks:
             return 0.0
         return round((sum(1 for check in checks if check) / len(checks)) * 100.0, 2)
+
+    @staticmethod
+    def _enrich_profile_with_project_brief(profile: dict, brief: dict) -> dict:
+        """Merge verified business context into a local inspection profile.
+
+        File inspection can describe HTML and CSS, but it cannot infer a
+        merchant's catalogue, original conversion paths, or brand constraints.
+        A caller-provided brief is therefore first-class pipeline input rather
+        than an afterthought added after the build plan is generated.
+        """
+        enriched = deepcopy(profile)
+        for key, value in brief.items():
+            if value is not None:
+                enriched[key] = deepcopy(value)
+        return enriched
+
+    @staticmethod
+    def _load_project_brief(project_path: str) -> dict:
+        """Load optional verified project context without making it mandatory."""
+        brief_path = Path(project_path) / "BRAND_CONTEXT.json"
+        if not brief_path.is_file():
+            return {}
+        try:
+            with brief_path.open("r", encoding="utf-8") as brief_file:
+                data = json.load(brief_file)
+            return data if isinstance(data, dict) else {}
+        except (OSError, json.JSONDecodeError):
+            return {}
 
     @staticmethod
     def _adapt_build_plan_for_site_builder(plan_dict: dict) -> dict:

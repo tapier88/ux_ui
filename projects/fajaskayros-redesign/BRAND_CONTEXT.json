@@ -1,0 +1,58 @@
+{
+  "project_name": "Fajas Free Kayros",
+  "industry": "fashion",
+  "content_type": "product_focused",
+  "style": "editorial",
+  "implementation": {
+    "framework": "static-html",
+    "styling_system": "custom-css",
+    "component_system": "vanilla-javascript"
+  },
+  "brand": {
+    "name": "Fajas Free Kayros",
+    "personality": "confident",
+    "strong_identity": true,
+    "preserve_colors": true,
+    "colors": {
+      "primary": "#231F20",
+      "secondary": "#9E1F63",
+      "accent": "#D9A84A"
+    },
+    "logo": "https://fajaskayros.com/wp-content/uploads/2024/04/Logokayros-colornew.png",
+    "value_proposition": "Moldea tu cuerpo con prendas versátiles, cómodas y novedosas."
+  },
+  "branding": {
+    "colors": {
+      "primary": "#231F20",
+      "secondary": "#9E1F63",
+      "accent": "#D9A84A"
+    }
+  },
+  "commerce": {
+    "homepage_purpose": "Catálogo ecommerce de fajas y prendas moldeadoras de Fajas Free Kayros",
+    "primary_cta": "Ver colección",
+    "secondary_cta": "Asesoría por WhatsApp",
+    "seo_title": "Fajas Free Kayros | Fajas moldeadoras y prendas para mujer",
+    "seo_description": "Fajas moldeadoras, shorts, cinturillas y línea postquirúrgica de Fajas Free Kayros. Envíos nacionales e internacionales.",
+    "hero_name": "Colección principal",
+    "hero_purpose": "Presentar el valor de marca y conducir al catálogo sin alterar los productos ni los canales de compra originales."
+  },
+  "navigation": {
+    "useful": true,
+    "items": [
+      {"label": "Inicio", "href": "#inicio"},
+      {"label": "Colecciones", "href": "#colecciones"},
+      {"label": "Productos", "href": "#productos"},
+      {"label": "La marca", "href": "#marca"},
+      {"label": "Contacto", "href": "#contacto"}
+    ]
+  },
+  "content": {
+    "relevant": true,
+    "preserve": ["catálogo", "precios", "categorías", "WhatsApp", "dirección", "políticas"],
+    "weak_headlines": false
+  },
+  "experience": {
+    "sections": ["hero", "confidence", "collections", "products", "brand-story", "contact", "footer"]
+  }
+}
