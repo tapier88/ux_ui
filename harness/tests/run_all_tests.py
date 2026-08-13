@@ -49,6 +49,7 @@ class TestResults:
     "events": "Events",
     "runtime": "Runtime",
     "agent_cycle": "Agent Cycle",
+    "agent_cycle_node": "Agent Cycle Node",
     "error_recovery": "Error Recovery",
             "tests": "Tests"
         }
@@ -721,6 +722,14 @@ def run_all_tests():
     from harness.tests.test_agent_cycle import run_all_tests as run_agent_cycle_tests
     agent_cycle_passed = run_agent_cycle_tests()
     results.add("agent_cycle", agent_cycle_passed)
+
+    print()
+    print("--- Agent Cycle Node Tests ---")
+    from harness.tests.test_design_agent_cycle_node import (
+        run_all_tests as run_agent_cycle_node_tests,
+    )
+    agent_cycle_node_passed = run_agent_cycle_node_tests()
+    results.add("agent_cycle_node", agent_cycle_node_passed)
 
     print()
     print("--- Error Handling Tests ---")
