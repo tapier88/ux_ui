@@ -6,6 +6,20 @@ import unittest
 from datetime import datetime
 
 
+def _configure_stdout():
+    """Make the runner portable across Windows consoles that default to cp1252."""
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
+_configure_stdout()
+
+
 class TestResults:
     """Collect test results"""
     def __init__(self):
@@ -34,6 +48,7 @@ class TestResults:
             "qwen_adapter": "Qwen Adapter",
             "checkpoint": "Checkpoint",
             "events": "Events",
+            "runtime": "Runtime",
             "error_recovery": "Error Recovery",
             "tests": "Tests"
         }
@@ -51,16 +66,25 @@ class TestResults:
 results = TestResults()
 
 
+def run_group(group_key: str, tests: list[tuple[str, callable]]) -> bool:
+    """Run a logical test group and only mark it PASS when every test passes."""
+    group_passed = True
+    for name, test_func in tests:
+        group_passed = run_test(name, test_func) and group_passed
+    results.add(group_key, group_passed)
+    return group_passed
+
+
 def run_test(name: str, test_func):
     """Run a test and record result"""
     try:
         test_func()
         results.add(name, True, "OK")
-        print(f"✓ {name}")
+        print(f"[PASS] {name}")
         return True
     except Exception as e:
         results.add(name, False, str(e))
-        print(f"✗ {name}: {e}")
+        print(f"[FAIL] {name}: {e}")
         return False
 
 
@@ -622,73 +646,84 @@ def run_all_tests():
     
     # Graph tests
     print("--- Graph Tests ---")
-    run_test("test_graph_creation", test_graph_creation)
-    run_test("test_graph_validation", test_graph_validation)
-    run_test("test_graph_execution_order", test_graph_execution_order)
-    results.add("graph", True)  # Mark graph as pass if individual tests pass
+    run_group("graph", [
+        ("test_graph_creation", test_graph_creation),
+        ("test_graph_validation", test_graph_validation),
+        ("test_graph_execution_order", test_graph_execution_order),
+    ])
     
     print()
     print("--- State Tests ---")
-    run_test("test_state_creation", test_state_creation)
-    run_test("test_state_updates", test_state_updates)
-    run_test("test_state_history", test_state_history)
-    results.add("state", True)
+    run_group("state", [
+        ("test_state_creation", test_state_creation),
+        ("test_state_updates", test_state_updates),
+        ("test_state_history", test_state_history),
+    ])
     
     print()
     print("--- Checkpoint Tests ---")
-    run_test("test_checkpoint_creation", test_checkpoint_creation)
-    run_test("test_checkpoint_restore", test_checkpoint_restore)
-    results.add("checkpoint", True)
+    run_group("checkpoint", [
+        ("test_checkpoint_creation", test_checkpoint_creation),
+        ("test_checkpoint_restore", test_checkpoint_restore),
+    ])
     
     print()
     print("--- Event Tests ---")
-    run_test("test_event_creation", test_event_creation)
-    run_test("test_event_emitter", test_event_emitter)
-    run_test("test_event_history", test_event_history)
-    results.add("events", True)
+    run_group("events", [
+        ("test_event_creation", test_event_creation),
+        ("test_event_emitter", test_event_emitter),
+        ("test_event_history", test_event_history),
+    ])
     
     print()
     print("--- Tool Tests ---")
-    run_test("test_tool_registry", test_tool_registry)
-    run_test("test_tool_execution", test_tool_execution)
-    run_test("test_mock_tools", test_mock_tools)
-    results.add("tools", True)
+    run_group("tools", [
+        ("test_tool_registry", test_tool_registry),
+        ("test_tool_execution", test_tool_execution),
+        ("test_mock_tools", test_mock_tools),
+    ])
     
     print()
     print("--- Skill Tests ---")
-    run_test("test_skill_registry", test_skill_registry)
-    run_test("test_skill_execution", test_skill_execution)
-    run_test("test_test_skill_registered", test_test_skill_registered)
-    results.add("skills", True)
+    run_group("skills", [
+        ("test_skill_registry", test_skill_registry),
+        ("test_skill_execution", test_skill_execution),
+        ("test_test_skill_registered", test_test_skill_registered),
+    ])
     
     print()
     print("--- Qwen Adapter Tests ---")
-    run_test("test_mock_provider", test_mock_provider)
-    run_test("test_mock_generation", test_mock_generation)
-    run_test("test_provider_factory", test_provider_factory)
-    run_test("test_default_provider", test_default_provider)
-    results.add("qwen_adapter", True)
+    run_group("qwen_adapter", [
+        ("test_mock_provider", test_mock_provider),
+        ("test_mock_generation", test_mock_generation),
+        ("test_provider_factory", test_provider_factory),
+        ("test_default_provider", test_default_provider),
+    ])
     
     print()
     print("--- Node Tests ---")
-    run_test("test_hello_node", test_hello_node)
-    run_test("test_qwen_test_node", test_qwen_test_node)
-    run_test("test_tool_test_node", test_tool_test_node)
-    run_test("test_skill_test_node", test_skill_test_node)
-    results.add("nodes", True)
+    run_group("nodes", [
+        ("test_hello_node", test_hello_node),
+        ("test_qwen_test_node", test_qwen_test_node),
+        ("test_tool_test_node", test_tool_test_node),
+        ("test_skill_test_node", test_skill_test_node),
+    ])
     
     print()
     print("--- Runtime Tests ---")
-    run_test("test_runtime_execution", test_runtime_execution)
-    run_test("test_full_test_graph", test_full_test_graph)
+    run_group("runtime", [
+        ("test_runtime_execution", test_runtime_execution),
+        ("test_full_test_graph", test_full_test_graph),
+    ])
     
     print()
     print("--- Error Handling Tests ---")
-    run_test("test_error_handling", test_error_handling)
-    run_test("test_retry_mechanism", test_retry_mechanism)
-    results.add("error_recovery", True)
+    run_group("error_recovery", [
+        ("test_error_handling", test_error_handling),
+        ("test_retry_mechanism", test_retry_mechanism),
+    ])
     
-    results.add("tests", True)
+    results.add("tests", all(r["passed"] for r in results.results.values()))
     
     # Print final status
     results.print_status()

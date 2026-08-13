@@ -89,6 +89,10 @@ class DesignExecutionPlanner:
         
         # Generate motion plan
         plan.motion_plan = self._generate_motion_plan(design_profile, resource_report)
+
+        # Generate executable navigation and interaction contracts for SiteBuilder
+        plan.navigation = self._generate_navigation_plan(plan)
+        plan.interactions = self._generate_interactions_plan(plan.motion_plan)
         
         # Generate responsive plan
         plan.responsive_plan = self.responsive_planner.plan_standard_responsive()
@@ -399,6 +403,50 @@ class DesignExecutionPlanner:
         motions.append(hero_motion)
         
         return motions
+
+    def _generate_navigation_plan(self, plan: DesignBuildPlan) -> Dict[str, Any]:
+        """Generate the site navigation contract consumed by SiteBuilder."""
+        pages = [page.to_dict() for page in plan.pages]
+        nav_component = next(
+            (
+                component.to_dict()
+                for component in plan.components
+                if component.type == "navigation"
+            ),
+            None,
+        )
+
+        return {
+            "component": nav_component,
+            "landmarks": {
+                "role": "navigation",
+                "aria_label": "Main navigation",
+            },
+            "items": [
+                {"label": "Home", "href": "/"},
+                {"label": "Benefits", "href": "#benefits"},
+                {"label": "Product", "href": "#product"},
+                {"label": "Testimonials", "href": "#testimonials"},
+            ],
+            "primary_cta": pages[0].get("primary_cta") if pages else "Get Started",
+        }
+
+    def _generate_interactions_plan(self, motion_plan: List) -> List[Dict[str, Any]]:
+        """Expose motion plans as executable interaction records."""
+        interactions = []
+        for motion in motion_plan:
+            motion_dict = motion.to_dict()
+            interactions.append({
+                "target": motion_dict.get("target"),
+                "trigger": motion_dict.get("trigger"),
+                "type": motion_dict.get("type"),
+                "duration": motion_dict.get("duration"),
+                "easing": motion_dict.get("easing"),
+                "reduced_motion_behavior": motion_dict.get("reduced_motion_behavior")
+                or "disable non-essential motion",
+                "resource": motion_dict.get("resource"),
+            })
+        return interactions
     
     def _generate_implementation_order(self) -> List[ImplementationStep]:
         """Generate implementation order"""

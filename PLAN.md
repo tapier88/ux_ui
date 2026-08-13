@@ -134,16 +134,14 @@ propios que protejan esos cambios.
 
 ## Fase 2B — Lo que Fase 2 dejó pendiente
 
-- [x] Implementados 5 de los 7 métodos `_handle_*` que estaban vacíos:
+- [x] Implementados los 7 métodos `_handle_*` que estaban vacíos o eran no-op:
       `_handle_typography`, `_handle_layout`, `_handle_responsive`,
-      `_handle_accessibility`, `_handle_performance` — cada uno ahora
-      escribe archivos reales (CSS de variables, checklists en Markdown)
-      a partir de los datos que sí produce `design_execution_planner`.
-      Verificado: una corrida real ahora crea **10 archivos** (antes: 1).
-      `_handle_navigation` y `_handle_interactions` siguen vacíos a
-      propósito — no hay ningún campo `navigation`/`interactions` en
-      `DesignBuildPlan.to_dict()` todavía, así que no hay datos que
-      procesar (ver el punto de `planner.py` más abajo).
+      `_handle_accessibility`, `_handle_performance`, `_handle_navigation`
+      y `_handle_interactions`. Cada uno ahora escribe archivos reales
+      (CSS de variables, checklists en Markdown, componente de navegación
+      y contratos de navegación/interacciones) a partir de los datos que
+      produce `design_execution_planner`. Verificado:
+      `test_design_pipeline_integration.py`, 6/6 tests.
 - [x] Bug encontrado y arreglado en el propio proceso: dos tareas del plan
       ("Hero section" y "Content sections") mapeaban ambas a la palabra
       clave `"sections"`, causando que `_handle_sections` corriera dos
@@ -165,10 +163,10 @@ propios que protejan esos cambios.
       npm) se omiten a propósito en vez de inventar un nombre de paquete
       incorrecto. Verificado con una corrida real: `dependencies` pasa de
       `[]` a `['tailwindcss', '@radix-ui/react-slot', 'framer-motion', 'lucide-react']`.
-- [ ] Ningún campo `navigation`/`interactions` existe en `DesignBuildPlan` —
-      hace falta agregarlos a `planner.py` (con datos reales, no vacíos)
-      antes de que `_handle_navigation`/`_handle_interactions` tengan algo
-      que hacer.
+- [x] `navigation`/`interactions` agregados a `DesignBuildPlan.to_dict()` y
+      generados por `planner.py`; `site_builder` ya consume ambos campos y
+      escribe `src/components/Navigation.tsx`, `NAVIGATION_PLAN.md` e
+      `INTERACTIONS_PLAN.md`.
 - [ ] Fusionar `dynamic-sections-and-resource-report` a `main`
 - [ ] Crear la carpeta `projects/` como destino estándar de los sitios que
       el agente genere/modifique
@@ -308,6 +306,18 @@ propios que protejan esos cambios.
   reales y los agrega a `plan.dependencies`. Verificado: 14 archivos por
   corrida (antes: 10), `dependencies` ahora tiene 4 paquetes reales (antes:
   vacío). 178 tests en verde. Rama de Qwen sigue sin aparecer en el remoto.
+- **2026-08-13** — Auditoría local en Windows: corregidos runners no
+  portables por salida Unicode (`run_all_tests.py` y
+  `test_website_intelligence.py`), el runner base ahora marca grupos como
+  FAIL si falla cualquier test interno, no como PASS fijo. Agregados
+  `navigation` e `interactions` al contrato de `DesignBuildPlan`; `planner.py`
+  ahora los genera y `site_builder` escribe artefactos reales para ambos
+  pasos (`src/components/Navigation.tsx`, `NAVIGATION_PLAN.md`,
+  `INTERACTIONS_PLAN.md`) en vez de no-op. Verificado:
+  `python -m harness.tests.run_all_tests` (40/40),
+  `python -m harness.tests.test_website_intelligence` (8/8) y batería
+  documentada completa con salida 0; `test_design_pipeline_integration.py`
+  ahora tiene 6/6 tests.
 
 ---
 
