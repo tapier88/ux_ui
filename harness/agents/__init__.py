@@ -260,3 +260,11 @@ def generate(prompt: str, **kwargs) -> LLMResponse:
     provider = get_default_provider()
     request = LLMRequest(prompt=prompt, **kwargs)
     return provider.generate(request)
+
+
+from harness.agents.design_cycle import (  # noqa: E402
+    AgentCycleResult,
+    AgentCycleStep,
+    AgentDecision,
+    DeterministicDesignAgent,
+)

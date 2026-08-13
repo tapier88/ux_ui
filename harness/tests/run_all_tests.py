@@ -46,9 +46,10 @@ class TestResults:
             "skills": "Skills",
             "qwen_adapter": "Qwen Adapter",
             "checkpoint": "Checkpoint",
-            "events": "Events",
-            "runtime": "Runtime",
-            "error_recovery": "Error Recovery",
+    "events": "Events",
+    "runtime": "Runtime",
+    "agent_cycle": "Agent Cycle",
+    "error_recovery": "Error Recovery",
             "tests": "Tests"
         }
         
@@ -714,7 +715,13 @@ def run_all_tests():
         ("test_runtime_execution", test_runtime_execution),
         ("test_full_test_graph", test_full_test_graph),
     ])
-    
+
+    print()
+    print("--- Agent Cycle Tests ---")
+    from harness.tests.test_agent_cycle import run_all_tests as run_agent_cycle_tests
+    agent_cycle_passed = run_agent_cycle_tests()
+    results.add("agent_cycle", agent_cycle_passed)
+
     print()
     print("--- Error Handling Tests ---")
     run_group("error_recovery", [
