@@ -104,6 +104,8 @@ design-relevant skills include:
 - `design_execution_planner`: creates `DesignBuildPlan`, including pages,
   sections, navigation, interactions, accessibility, performance, and style
   outputs.
+- `seo_analysis`: evaluates metadata, social preview, semantic sections,
+  indexability hints, and performance support before governance.
 - `site_builder`: writes actual implementation artifacts when execution is not
   dry-run.
 
@@ -116,6 +118,7 @@ website_intelligence
 -> redesign_intelligence
 -> design_resource_hub
 -> design_execution_planner
+-> seo_analysis
 -> governance_gate
 -> site_builder
 ```
@@ -250,6 +253,7 @@ python -m harness.tests.test_redesign_intelligence
 python -m harness.tests.test_git_persistence
 python -m harness.tests.test_color_intelligence
 python -m harness.tests.test_governance
+python -m harness.tests.test_seo_analysis
 python -m harness.tests.test_runtime_fixes
 python -m harness.tests.test_memory
 python -m harness.tests.test_checkpoint_persistence
@@ -271,8 +275,8 @@ design judgment base all have automated coverage.
   client and credentials.
 - Prospecting, external-reference learning, client-facing proposal generation,
   and outbound delivery are not implemented yet.
-- SEO exists only as a governance/design signal, not as a dedicated SEO analysis
-  skill.
+- SEO analysis is deterministic/local. It does not yet fetch live SERP,
+  Lighthouse, schema.org, or crawler data.
 
 ## Version
 

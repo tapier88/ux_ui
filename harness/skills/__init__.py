@@ -151,6 +151,21 @@ def register_redesign_intelligence_skill():
     )
 
 
+def register_seo_analysis_skill():
+    """Register the SEO analysis skill"""
+    from harness.skills.seo_analysis import seo_analysis_skill
+
+    registry = get_skill_registry()
+
+    registry.register_skill(
+        name="seo-analysis",
+        description="Deterministic SEO readiness analysis for design pipeline outputs",
+        func=seo_analysis_skill,
+        category="design",
+        version="1.0.0",
+    )
+
+
 # Auto-register test skill
 register_test_skill()
 
@@ -159,3 +174,9 @@ try:
     register_redesign_intelligence_skill()
 except Exception:
     pass  # May fail if redesign_intelligence module has issues
+
+# Auto-register SEO analysis skill
+try:
+    register_seo_analysis_skill()
+except Exception:
+    pass  # May fail if seo_analysis module has issues

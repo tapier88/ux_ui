@@ -15,6 +15,7 @@ python -m harness.tests.test_redesign_intelligence
 python -m harness.tests.test_git_persistence
 python -m harness.tests.test_color_intelligence
 python -m harness.tests.test_governance
+python -m harness.tests.test_seo_analysis
 python -m harness.tests.test_runtime_fixes
 python -m harness.tests.test_memory
 python -m harness.tests.test_checkpoint_persistence
@@ -214,7 +215,7 @@ propios que protejan esos cambios.
 ## Fase 4 — La visión completa (no iniciada)
 
 - [ ] Prospección: buscar sitios candidatos con diseño anticuado
-- [ ] Análisis SEO explícito (hoy solo hay análisis de diseño/UX)
+- [x] Análisis SEO explícito (hoy solo hay análisis de diseño/UX)
 - [ ] Aprendizaje por referencia externa: consultar repos/diseños reales antes
       de decidir (evita el "look genérico de IA")
 - [ ] Conectores MCP (Higgsfield y similares) y librerías externas
@@ -380,6 +381,11 @@ propios que protejan esos cambios.
 - **2026-08-13** — `ARCHITECTURE.md` actualizado desde la foto V0.1 antigua al
   estado real del harness: pipeline, gobernanza, memoria, persistencia Git,
   ciclo agente, nodo de grafo y juicio creativo provider-agnostic. Verificado:
+  `python -m harness.tests.run_all_tests`.
+- **2026-08-13** — Agregada skill `seo_analysis` y conectada a
+  `DesignPipelineNode` antes de gobernanza. La señal `seo_impact` ahora usa el
+  score SEO explícito. Verificado: `python -m harness.tests.test_seo_analysis`,
+  `python -m harness.tests.test_design_pipeline_integration` y
   `python -m harness.tests.run_all_tests`.
 
 ---

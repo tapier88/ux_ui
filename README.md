@@ -89,7 +89,11 @@ Built from scratch with a modular, graph-based execution engine.
 
 ### 12. Design Pipeline Governance
 - **DesignPipelineNode**: Runs website intelligence, redesign intelligence,
-  resource selection, execution planning, governance, and site building in order.
+  resource selection, execution planning, SEO analysis, governance, and site
+  building in order.
+- **SEO analysis**: Scores metadata readiness, social preview coverage,
+  semantic structure, indexability hints, and performance support before
+  governance runs.
 - **GovernanceGate**: Blocks real `site_builder` writes when deterministic
   quality signals fail the configured threshold.
 - **Auditable signals**: brand alignment, accessibility, visual craft,
@@ -170,6 +174,7 @@ For the deterministic agent-cycle guard, run:
 python -m harness.tests.test_agent_cycle
 python -m harness.tests.test_design_agent_cycle_node
 python -m harness.tests.test_design_judgment
+python -m harness.tests.test_seo_analysis
 ```
 
 ## Status

@@ -124,15 +124,32 @@ class DesignPipelineNode(BaseNode):
         except Exception as e:
             return self._failure(state.task_id, "design_execution_planner", e, stages)
 
-        # 5. Governance Gate - deterministic quality gate before any disk write.
+        # 5. SEO Analysis - explicit SEO readiness before governance scoring.
+        try:
+            from harness.skills.seo_analysis import seo_analysis_skill
+
+            plan_dict = build_plan.to_dict()
+            seo_result = seo_analysis_skill(
+                profile=profile_dict,
+                build_plan=plan_dict,
+                project_path=project_path,
+            )
+            stages["seo_analysis"] = {
+                "status": "completed",
+                "result": seo_result,
+            }
+        except Exception as e:
+            return self._failure(state.task_id, "seo_analysis", e, stages)
+
+        # 6. Governance Gate - deterministic quality gate before any disk write.
         try:
             from harness.core.governance import GovernanceGate
 
-            plan_dict = build_plan.to_dict()
             signals = state.inputs.get("governance_signals") or self._build_governance_signals(
                 profile_dict=profile_dict,
                 redesign_result=redesign_result,
                 plan_dict=plan_dict,
+                seo_result=seo_result,
             )
             gate = GovernanceGate(
                 threshold=governance_threshold,
@@ -159,6 +176,7 @@ class DesignPipelineNode(BaseNode):
                 "status": "dry_run_completed",
                 "stages": stages,
                 "build_plan": plan_dict,
+                "seo": seo_result,
                 "governance": governance_result.to_dict(),
             }
 
@@ -169,6 +187,7 @@ class DesignPipelineNode(BaseNode):
                 "status": "blocked",
                 "failed_stage": "governance_gate",
                 "stages": stages,
+                "seo": seo_result,
                 "governance": governance_result.to_dict(),
             }
 
@@ -201,6 +220,7 @@ class DesignPipelineNode(BaseNode):
             "task_id": state.task_id,
             "status": "completed",
             "stages": stages,
+            "seo": seo_result,
             "governance": governance_result.to_dict(),
             "report": report.to_dict(),
         }
@@ -210,6 +230,7 @@ class DesignPipelineNode(BaseNode):
         profile_dict: dict,
         redesign_result: dict,
         plan_dict: dict,
+        seo_result: Optional[dict] = None,
     ) -> list:
         """Build auditable governance signals from concrete pipeline outputs."""
         from harness.core.governance import ElevationSignal
@@ -278,18 +299,9 @@ class DesignPipelineNode(BaseNode):
         ]
         performance_score = DesignPipelineNode._score_ratio(performance_score_parts)
 
-        seo_requirements = [
-            page.get("seo_requirements", {})
-            for page in pages
-            if isinstance(page, dict)
-        ]
-        seo_score_parts = [
-            bool(seo_requirements),
-            all(bool(seo.get("title")) for seo in seo_requirements),
-            all(bool(seo.get("description")) for seo in seo_requirements),
-            all(seo.get("og_image") is True for seo in seo_requirements),
-        ]
-        seo_score = DesignPipelineNode._score_ratio(seo_score_parts)
+        seo_result = seo_result or {}
+        seo_checks = seo_result.get("checks", []) if isinstance(seo_result, dict) else []
+        seo_score = float(seo_result.get("score", 0.0)) if isinstance(seo_result, dict) else 0.0
 
         enabled_resources = [
             resource
@@ -332,7 +344,7 @@ class DesignPipelineNode(BaseNode):
             ElevationSignal(
                 "seo_impact",
                 seo_score,
-                f"{sum(seo_score_parts)}/{len(seo_score_parts)} SEO checks passed",
+                f"{sum(1 for check in seo_checks if check.get('passed'))}/{len(seo_checks)} SEO checks passed",
             ),
             ElevationSignal(
                 "originality",

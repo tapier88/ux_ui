@@ -58,13 +58,16 @@ class TestDryRun(DesignPipelineIntegrationTestCase):
             "redesign_intelligence",
             "design_resource_hub",
             "design_execution_planner",
+            "seo_analysis",
             "governance_gate",
         ):
             self.assertEqual(
                 result["stages"][stage]["status"], "completed", stage
             )
         self.assertIn("build_plan", result)
+        self.assertIn("seo", result)
         self.assertIn("governance", result)
+        self.assertGreaterEqual(result["seo"]["score"], 75.0)
         self.assertTrue(result["governance"]["passed"])
         self.assertGreater(len(result["build_plan"].get("sections", [])), 0)
         self.assertIn("navigation", result["build_plan"])
@@ -99,6 +102,8 @@ class TestRealBuild(DesignPipelineIntegrationTestCase):
 
         self.assertEqual(result["status"], "completed", result)
         report = result["report"]
+        self.assertIn("seo_analysis", result["stages"])
+        self.assertIn("seo", result)
         self.assertIn("governance_gate", result["stages"])
         self.assertTrue(result["governance"]["passed"])
         self.assertEqual(result["stages"]["governance_gate"]["status"], "completed")
