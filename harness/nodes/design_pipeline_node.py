@@ -72,6 +72,8 @@ class DesignPipelineNode(BaseNode):
         url = state.inputs.get("url")
         resource_hub_options = state.inputs.get("resource_hub_options", {})
         dry_run = state.inputs.get("dry_run", True)
+        governance_threshold = state.inputs.get("governance_threshold", 75.0)
+        governance_record_to_memory = state.inputs.get("governance_record_to_memory", False)
 
         stages: dict = {}
 
@@ -122,16 +124,55 @@ class DesignPipelineNode(BaseNode):
         except Exception as e:
             return self._failure(state.task_id, "design_execution_planner", e, stages)
 
+        # 5. Governance Gate - deterministic quality gate before any disk write.
+        try:
+            from harness.core.governance import GovernanceGate
+
+            plan_dict = build_plan.to_dict()
+            signals = state.inputs.get("governance_signals") or self._build_governance_signals(
+                profile_dict=profile_dict,
+                redesign_result=redesign_result,
+                plan_dict=plan_dict,
+            )
+            gate = GovernanceGate(
+                threshold=governance_threshold,
+                record_to_memory=governance_record_to_memory,
+            )
+            governance_result = gate.evaluate(
+                signals=signals,
+                task_id=state.task_id,
+                subject=profile_dict.get("url")
+                or profile_dict.get("project_name")
+                or project_path,
+            )
+            stages["governance_gate"] = {
+                "status": "completed" if governance_result.passed else "blocked",
+                "result": governance_result.to_dict(),
+            }
+        except Exception as e:
+            return self._failure(state.task_id, "governance_gate", e, stages)
+
         if dry_run:
             return {
                 "node": "DesignPipelineNode",
                 "task_id": state.task_id,
                 "status": "dry_run_completed",
                 "stages": stages,
-                "build_plan": build_plan.to_dict(),
+                "build_plan": plan_dict,
+                "governance": governance_result.to_dict(),
             }
 
-        # 5. Site Builder - actually write the code changes
+        if not governance_result.passed:
+            return {
+                "node": "DesignPipelineNode",
+                "task_id": state.task_id,
+                "status": "blocked",
+                "failed_stage": "governance_gate",
+                "stages": stages,
+                "governance": governance_result.to_dict(),
+            }
+
+        # 6. Site Builder - actually write the code changes
         try:
             from harness.skills.site_builder import SiteBuilder
 
@@ -147,7 +188,7 @@ class DesignPipelineNode(BaseNode):
             # site_builder side (see PLAN.md), so this bridge doesn't
             # change behavior yet - but it's the correct contract so the
             # data is there once those methods are actually implemented.
-            plan_dict = self._adapt_build_plan_for_site_builder(build_plan.to_dict())
+            plan_dict = self._adapt_build_plan_for_site_builder(plan_dict)
 
             builder = SiteBuilder(project_path)
             report = builder.execute_build(plan_dict)
@@ -160,8 +201,151 @@ class DesignPipelineNode(BaseNode):
             "task_id": state.task_id,
             "status": "completed",
             "stages": stages,
+            "governance": governance_result.to_dict(),
             "report": report.to_dict(),
         }
+
+    @staticmethod
+    def _build_governance_signals(
+        profile_dict: dict,
+        redesign_result: dict,
+        plan_dict: dict,
+    ) -> list:
+        """Build auditable governance signals from concrete pipeline outputs."""
+        from harness.core.governance import ElevationSignal
+
+        tokens = plan_dict.get("design_tokens", {})
+        colors = tokens.get("colors", {}) if isinstance(tokens, dict) else {}
+        typography = tokens.get("typography", {}) if isinstance(tokens, dict) else {}
+        sections = plan_dict.get("sections", [])
+        components = plan_dict.get("components", [])
+        pages = plan_dict.get("pages", [])
+        accessibility = plan_dict.get("accessibility_plan", {})
+        performance = plan_dict.get("performance_plan", {})
+        interactions = plan_dict.get("interactions", [])
+        resource_usage = plan_dict.get("resource_usage", [])
+
+        preserve_decisions = redesign_result.get("preserve", []) if isinstance(redesign_result, dict) else []
+        brand_inputs = profile_dict.get("branding", {}) if isinstance(profile_dict, dict) else {}
+        brand_score_parts = [
+            bool(colors.get("primary")),
+            bool(colors.get("text")),
+            bool(colors.get("background")),
+            bool(typography.get("font_family")),
+            bool(preserve_decisions) or bool(brand_inputs),
+        ]
+        brand_score = DesignPipelineNode._score_ratio(brand_score_parts)
+
+        accessibility_score_parts = [
+            accessibility.get("semantic_html") is True,
+            accessibility.get("keyboard_navigation") is True,
+            accessibility.get("reduced_motion") is True,
+            isinstance(accessibility.get("focus_states"), dict) and bool(accessibility.get("focus_states")),
+            isinstance(accessibility.get("touch_targets"), dict) and bool(accessibility.get("touch_targets")),
+            isinstance(accessibility.get("contrast"), dict)
+            and float(accessibility.get("contrast", {}).get("min_ratio", 0)) >= 4.5,
+        ]
+        accessibility_score = DesignPipelineNode._score_ratio(accessibility_score_parts)
+
+        expected_sections = max(
+            (len(page.get("sections", [])) for page in pages if isinstance(page, dict)),
+            default=0,
+        )
+        section_layouts = {
+            section.get("layout")
+            for section in sections
+            if isinstance(section, dict) and section.get("layout")
+        }
+        visual_score_parts = [
+            len(sections) >= expected_sections and expected_sections > 0,
+            len(components) >= 3,
+            len(section_layouts) >= 3,
+            bool(colors),
+            bool(typography),
+        ]
+        visual_score = DesignPipelineNode._score_ratio(visual_score_parts)
+
+        image_optimization = performance.get("image_optimization", {})
+        bundle_budget = performance.get("bundle_budget", {})
+        animation_budget = performance.get("animation_budget", {})
+        performance_score_parts = [
+            performance.get("lazy_loading") is True,
+            isinstance(image_optimization, dict) and "webp" in image_optimization.get("formats", []),
+            isinstance(image_optimization, dict) and image_optimization.get("responsive_images") is True,
+            isinstance(bundle_budget, dict) and bundle_budget.get("max_js_kb", 9999) <= 300,
+            isinstance(animation_budget, dict)
+            and animation_budget.get("respect_prefers_reduced_motion") is True,
+        ]
+        performance_score = DesignPipelineNode._score_ratio(performance_score_parts)
+
+        seo_requirements = [
+            page.get("seo_requirements", {})
+            for page in pages
+            if isinstance(page, dict)
+        ]
+        seo_score_parts = [
+            bool(seo_requirements),
+            all(bool(seo.get("title")) for seo in seo_requirements),
+            all(bool(seo.get("description")) for seo in seo_requirements),
+            all(seo.get("og_image") is True for seo in seo_requirements),
+        ]
+        seo_score = DesignPipelineNode._score_ratio(seo_score_parts)
+
+        enabled_resources = [
+            resource
+            for resource in resource_usage
+            if isinstance(resource, dict) and resource.get("enabled")
+        ]
+        originality_score_parts = [
+            len(section_layouts) >= 3,
+            len(enabled_resources) >= 3,
+            bool(interactions),
+            any(
+                section.get("motion")
+                for section in sections
+                if isinstance(section, dict)
+            ),
+        ]
+        originality_score = DesignPipelineNode._score_ratio(originality_score_parts)
+
+        return [
+            ElevationSignal(
+                "brand_alignment",
+                brand_score,
+                f"{sum(brand_score_parts)}/{len(brand_score_parts)} brand/token checks passed",
+            ),
+            ElevationSignal(
+                "accessibility",
+                accessibility_score,
+                f"{sum(accessibility_score_parts)}/{len(accessibility_score_parts)} accessibility checks passed",
+            ),
+            ElevationSignal(
+                "visual_craft",
+                visual_score,
+                f"{len(sections)} sections, {len(components)} components, {len(section_layouts)} layout types",
+            ),
+            ElevationSignal(
+                "performance",
+                performance_score,
+                f"{sum(performance_score_parts)}/{len(performance_score_parts)} performance checks passed",
+            ),
+            ElevationSignal(
+                "seo_impact",
+                seo_score,
+                f"{sum(seo_score_parts)}/{len(seo_score_parts)} SEO checks passed",
+            ),
+            ElevationSignal(
+                "originality",
+                originality_score,
+                f"{len(section_layouts)} layout types, {len(enabled_resources)} enabled resources, {len(interactions)} interactions",
+            ),
+        ]
+
+    @staticmethod
+    def _score_ratio(checks: list[bool]) -> float:
+        if not checks:
+            return 0.0
+        return round((sum(1 for check in checks if check) / len(checks)) * 100.0, 2)
 
     @staticmethod
     def _adapt_build_plan_for_site_builder(plan_dict: dict) -> dict:
