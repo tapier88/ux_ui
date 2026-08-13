@@ -58,11 +58,14 @@ class TestDryRun(DesignPipelineIntegrationTestCase):
             "redesign_intelligence",
             "design_resource_hub",
             "design_execution_planner",
+            "governance_gate",
         ):
             self.assertEqual(
                 result["stages"][stage]["status"], "completed", stage
             )
         self.assertIn("build_plan", result)
+        self.assertIn("governance", result)
+        self.assertTrue(result["governance"]["passed"])
         self.assertGreater(len(result["build_plan"].get("sections", [])), 0)
         self.assertIn("navigation", result["build_plan"])
         self.assertGreater(len(result["build_plan"]["navigation"].get("items", [])), 0)
@@ -96,6 +99,9 @@ class TestRealBuild(DesignPipelineIntegrationTestCase):
 
         self.assertEqual(result["status"], "completed", result)
         report = result["report"]
+        self.assertIn("governance_gate", result["stages"])
+        self.assertTrue(result["governance"]["passed"])
+        self.assertEqual(result["stages"]["governance_gate"]["status"], "completed")
         self.assertEqual(
             report.get("errors"), [], f"Build reported errors: {report.get('errors')}"
         )
@@ -125,7 +131,39 @@ class TestRealBuild(DesignPipelineIntegrationTestCase):
         self.assertIn("NAVIGATION_PLAN.md", created)
         self.assertIn("INTERACTIONS_PLAN.md", created)
 
-    def test_06_running_twice_in_a_row_is_stable(self):
+    def test_06_governance_blocks_before_site_builder_writes(self):
+        """A failed governance gate must stop before site_builder writes files."""
+        from harness.nodes.design_pipeline_node import DesignPipelineNode
+        from harness.core.state import TaskState
+
+        files_before = set()
+        for root, dirs, files in os.walk(self.work_dir):
+            dirs[:] = [d for d in dirs if d not in (".git", "__pycache__")]
+            for f in files:
+                files_before.add(os.path.relpath(os.path.join(root, f), self.work_dir))
+
+        state = TaskState(task_id="integration-governance-block")
+        state.inputs = {
+            "project_path": self.work_dir,
+            "url": "https://example.com",
+            "dry_run": False,
+            "governance_threshold": 101.0,
+        }
+        result = DesignPipelineNode().execute(state)
+
+        files_after = set()
+        for root, dirs, files in os.walk(self.work_dir):
+            dirs[:] = [d for d in dirs if d not in (".git", "__pycache__")]
+            for f in files:
+                files_after.add(os.path.relpath(os.path.join(root, f), self.work_dir))
+
+        self.assertEqual(result["status"], "blocked", result)
+        self.assertEqual(result["failed_stage"], "governance_gate")
+        self.assertEqual(result["stages"]["governance_gate"]["status"], "blocked")
+        self.assertNotIn("site_builder", result["stages"])
+        self.assertEqual(files_before, files_after)
+
+    def test_07_running_twice_in_a_row_is_stable(self):
         """Regression test for the WebsiteInspector non-determinism found
         while debugging this pipeline: running the build twice on what
         should be the same project (the harness's own checkpoint/output

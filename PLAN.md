@@ -37,10 +37,11 @@ PROSPECTAR → INSPECCIONAR → APRENDER → DECIDIR → CONSTRUIR → EMPAQUETA
 
 ## Dónde estamos ahora mismo (resumen de una línea)
 
-**Las 5 etapas del pipeline de diseño ya están conectadas en un solo nodo
-ejecutable (`DesignPipelineNode`) y corren de punta a punta contra un proyecto
-real, pero el build final todavía falla por un desajuste de tipos entre
-`design_execution_planner` y `site_builder`. Ese es el bloqueador #1.**
+**El pipeline de diseño ya corre de punta a punta contra un proyecto real,
+con `GovernanceGate` conectado como bloqueo obligatorio antes de `site_builder`
+y artefactos reales para secciones, navegación, interacciones, accesibilidad,
+performance y estilos. El siguiente bloqueador mayor es convertir los pasos
+fijos del harness en un ciclo agente PLAN → EXECUTE → OBSERVE → EVALUATE → DECIDE.**
 
 ---
 
@@ -63,7 +64,7 @@ real, pero el build final todavía falla por un desajuste de tipos entre
 - [x] `design_execution_planner` — convierte decisiones en plan técnico — sin tests propios todavía (**pendiente, ver Fase 2**)
 - [x] `site_builder` — ejecuta el plan y modifica código real, con rollback — sin tests propios todavía
 - [x] Gobernanza transversal: `GovernanceGate` + `ElevationScorer` — 13 tests — `harness/core/governance/` — PR #17
-  - [ ] **Conectar `GovernanceGate` como paso obligatorio antes de `site_builder`** — existe pero nadie lo llama todavía
+  - [x] `GovernanceGate` conectado como paso obligatorio antes de `site_builder`
 
 ## Fase 2 — Conectar el pipeline ✅ CERRADA — pipeline real funcionando
 
@@ -141,7 +142,7 @@ propios que protejan esos cambios.
       (CSS de variables, checklists en Markdown, componente de navegación
       y contratos de navegación/interacciones) a partir de los datos que
       produce `design_execution_planner`. Verificado:
-      `test_design_pipeline_integration.py`, 6/6 tests.
+      `test_design_pipeline_integration.py`, 7/7 tests.
 - [x] Bug encontrado y arreglado en el propio proceso: dos tareas del plan
       ("Hero section" y "Content sections") mapeaban ambas a la palabra
       clave `"sections"`, causando que `_handle_sections` corriera dos
@@ -168,7 +169,7 @@ propios que protejan esos cambios.
       escribe `src/components/Navigation.tsx`, `NAVIGATION_PLAN.md` e
       `INTERACTIONS_PLAN.md`.
 - [ ] Fusionar `dynamic-sections-and-resource-report` a `main`
-- [ ] Crear la carpeta `projects/` como destino estándar de los sitios que
+- [x] Crear la carpeta `projects/` como destino estándar de los sitios que
       el agente genere/modifique
 - [ ] **Coordinar con el trabajo paralelo de Qwen** — su rama sigue sin
       aparecer en el remoto (verificado de nuevo hoy)
@@ -182,16 +183,16 @@ propios que protejan esos cambios.
       — hoy `connect()`/`generate()` son placeholders, todo corre en
       `MockLLMProvider`. Instrucción ya redactada y entregada a Qwen dos veces,
       todavía no ejecutada.
-- [ ] Definir las señales reales del `GovernanceGate`
+- [x] Definir las señales reales del `GovernanceGate`
       (`brand_alignment`, `accessibility`, `visual_craft`, `performance`,
       `seo_impact`, `originality`) como salidas medibles de cada skill, no
-      números inventados — depende de que los skills expongan métricas
-      concretas (ratios de contraste reales ya existen en
-      `color_intelligence.py`; Core Web Vitals reales, no)
+      números inventados. `DesignPipelineNode` ahora deriva señales
+      determinísticas desde `profile_dict`, `redesign_result` y
+      `DesignBuildPlan.to_dict()` con evidencia auditable por dimensión.
 - [ ] `BaseDesignJudgmentEngine`: generalizar el patrón del Qwen Adapter para
       que cualquier skill de "juicio creativo" sea intercambiable entre
       proveedores de IA
-- [ ] Conectar `GovernanceGate` antes de `site_builder` en `DesignPipelineNode`
+- [x] Conectar `GovernanceGate` antes de `site_builder` en `DesignPipelineNode`
       (ver Fase 1, ya marcado ahí también)
 
 ## Fase 4 — La visión completa (no iniciada)
@@ -318,6 +319,16 @@ propios que protejan esos cambios.
   `python -m harness.tests.test_website_intelligence` (8/8) y batería
   documentada completa con salida 0; `test_design_pipeline_integration.py`
   ahora tiene 6/6 tests.
+- **2026-08-13** — `GovernanceGate` conectado en `DesignPipelineNode` como
+  etapa obligatoria antes de `site_builder`. Las señales
+  `brand_alignment`, `accessibility`, `visual_craft`, `performance`,
+  `seo_impact` y `originality` ahora se derivan de datos concretos del
+  pipeline (`profile_dict`, `redesign_result`, `DesignBuildPlan.to_dict()`)
+  con evidencia por dimensión. Si la puerta falla en build real, el nodo
+  devuelve `status="blocked"` antes de que `site_builder` escriba archivos.
+  Verificado: `python -m harness.tests.run_all_tests` (40/40),
+  `python -m harness.tests.test_governance` (13/13) y
+  `python -m harness.tests.test_design_pipeline_integration` (7/7).
 
 ---
 
@@ -326,9 +337,9 @@ propios que protejan esos cambios.
 1. Corre los tests de la sección de arriba primero. Si algo que aquí dice
    `[x]` te falla, este documento está desactualizado — arréglalo y actualiza
    el Log, no asumas que el código está mal.
-2. El bloqueador activo ahora mismo está en **Fase 2**. Es la tarea de mayor
-   prioridad — todo lo de Fase 3 y 4 depende de que el pipeline complete un
-   build real primero.
+2. Fase 2/Fase 2B ya tienen el pipeline ejecutando build real con gobernanza
+   previa a escritura. El bloqueador activo ahora está en Fase 3: pasar de
+   un pipeline fijo a un agente que decide y evalúa iterativamente.
 3. No fusiones ninguna rama sin correr su suite de tests aislada primero
    (`git worktree add /tmp/test_X origin/rama-x` es más seguro que hacer
    checkout directo, no ensucia tu working copy).

@@ -87,6 +87,15 @@ Built from scratch with a modular, graph-based execution engine.
 - **GitValidator**: Validation gates for commits and publication
 - **TaskManifest**: Task persistence history and recovery
 
+### 12. Design Pipeline Governance
+- **DesignPipelineNode**: Runs website intelligence, redesign intelligence,
+  resource selection, execution planning, governance, and site building in order.
+- **GovernanceGate**: Blocks real `site_builder` writes when deterministic
+  quality signals fail the configured threshold.
+- **Auditable signals**: brand alignment, accessibility, visual craft,
+  performance, SEO impact, and originality are derived from concrete pipeline
+  outputs and returned in the node result.
+
 ## Task Completion Lifecycle
 
 A task can only be marked as **COMPLETE** after passing through these stages:
