@@ -48,6 +48,7 @@ class TestResults:
             "checkpoint": "Checkpoint",
     "events": "Events",
     "runtime": "Runtime",
+    "seo_analysis": "SEO Analysis",
     "design_judgment": "Design Judgment",
     "agent_cycle": "Agent Cycle",
     "agent_cycle_node": "Agent Cycle Node",
@@ -717,6 +718,12 @@ def run_all_tests():
         ("test_runtime_execution", test_runtime_execution),
         ("test_full_test_graph", test_full_test_graph),
     ])
+
+    print()
+    print("--- SEO Analysis Tests ---")
+    from harness.tests import test_seo_analysis
+    seo_analysis_passed = test_seo_analysis.run_all_tests()
+    results.add("seo_analysis", seo_analysis_passed)
 
     print()
     print("--- Design Judgment Tests ---")
