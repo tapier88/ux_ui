@@ -60,13 +60,16 @@ class TestDryRun(DesignPipelineIntegrationTestCase):
             "design_execution_planner",
             "seo_analysis",
             "governance_gate",
+            "client_proposal",
         ):
             self.assertEqual(
                 result["stages"][stage]["status"], "completed", stage
             )
         self.assertIn("build_plan", result)
         self.assertIn("seo", result)
+        self.assertIn("proposal", result)
         self.assertIn("governance", result)
+        self.assertIn("## SEO impact", result["proposal"]["markdown"])
         self.assertGreaterEqual(result["seo"]["score"], 75.0)
         self.assertTrue(result["governance"]["passed"])
         self.assertGreater(len(result["build_plan"].get("sections", [])), 0)
@@ -104,6 +107,7 @@ class TestRealBuild(DesignPipelineIntegrationTestCase):
         report = result["report"]
         self.assertIn("seo_analysis", result["stages"])
         self.assertIn("seo", result)
+        self.assertIn("proposal", result)
         self.assertIn("governance_gate", result["stages"])
         self.assertTrue(result["governance"]["passed"])
         self.assertEqual(result["stages"]["governance_gate"]["status"], "completed")

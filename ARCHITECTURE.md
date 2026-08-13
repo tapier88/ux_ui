@@ -106,6 +106,8 @@ design-relevant skills include:
   outputs.
 - `seo_analysis`: evaluates metadata, social preview, semantic sections,
   indexability hints, and performance support before governance.
+- `client_proposal`: generates client-facing Markdown with before/after,
+  SEO impact, and quality proof.
 - `site_builder`: writes actual implementation artifacts when execution is not
   dry-run.
 
@@ -120,6 +122,7 @@ website_intelligence
 -> design_execution_planner
 -> seo_analysis
 -> governance_gate
+-> client_proposal
 -> site_builder
 ```
 
@@ -254,6 +257,7 @@ python -m harness.tests.test_git_persistence
 python -m harness.tests.test_color_intelligence
 python -m harness.tests.test_governance
 python -m harness.tests.test_seo_analysis
+python -m harness.tests.test_client_proposal
 python -m harness.tests.test_runtime_fixes
 python -m harness.tests.test_memory
 python -m harness.tests.test_checkpoint_persistence

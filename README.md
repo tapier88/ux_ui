@@ -94,6 +94,8 @@ Built from scratch with a modular, graph-based execution engine.
 - **SEO analysis**: Scores metadata readiness, social preview coverage,
   semantic structure, indexability hints, and performance support before
   governance runs.
+- **Client proposal**: Produces client-facing Markdown with before/after,
+  quality proof, and SEO impact from pipeline outputs.
 - **GovernanceGate**: Blocks real `site_builder` writes when deterministic
   quality signals fail the configured threshold.
 - **Auditable signals**: brand alignment, accessibility, visual craft,
@@ -175,6 +177,7 @@ python -m harness.tests.test_agent_cycle
 python -m harness.tests.test_design_agent_cycle_node
 python -m harness.tests.test_design_judgment
 python -m harness.tests.test_seo_analysis
+python -m harness.tests.test_client_proposal
 ```
 
 ## Status

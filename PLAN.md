@@ -22,6 +22,7 @@ python -m harness.tests.test_checkpoint_persistence
 python -m harness.tests.test_agent_cycle
 python -m harness.tests.test_design_agent_cycle_node
 python -m harness.tests.test_design_judgment
+python -m harness.tests.test_client_proposal
 ```
 Si alguno falla, este documento está desactualizado en ese punto — confía en el
 test, actualiza el documento, no al revés.
@@ -219,7 +220,7 @@ propios que protejan esos cambios.
 - [ ] Aprendizaje por referencia externa: consultar repos/diseños reales antes
       de decidir (evita el "look genérico de IA")
 - [ ] Conectores MCP (Higgsfield y similares) y librerías externas
-- [ ] Generación de la propuesta de valor cliente-facing (antes/después,
+- [x] Generación de la propuesta de valor cliente-facing (antes/después,
       justificación, impacto SEO)
 - [ ] Envío por Email/Gmail/Telegram
 - [ ] Extender el ciclo PLAN → EXECUTE → OBSERVE → EVALUATE → DECIDE a
@@ -385,6 +386,12 @@ propios que protejan esos cambios.
 - **2026-08-13** — Agregada skill `seo_analysis` y conectada a
   `DesignPipelineNode` antes de gobernanza. La señal `seo_impact` ahora usa el
   score SEO explícito. Verificado: `python -m harness.tests.test_seo_analysis`,
+  `python -m harness.tests.test_design_pipeline_integration` y
+  `python -m harness.tests.run_all_tests`.
+- **2026-08-13** — Agregada skill `client_proposal` y conectada a
+  `DesignPipelineNode` para generar Markdown cliente-facing con antes/después,
+  justificación, prueba de calidad e impacto SEO. Verificado:
+  `python -m harness.tests.test_client_proposal`,
   `python -m harness.tests.test_design_pipeline_integration` y
   `python -m harness.tests.run_all_tests`.
 
