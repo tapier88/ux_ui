@@ -126,6 +126,12 @@ Built from scratch with a modular, graph-based execution engine.
 - **Provider swap ready**: Skills can use mock, Qwen, or future providers
   without changing their public judgment contract.
 
+### 15. Prospecting
+- **ProspectingEngine**: Ranks provided candidate websites by redesign
+  opportunity using auditable local signals.
+- **No outreach side effects**: The skill does not scrape, email, or contact
+  anyone; it only scores candidate data passed to it.
+
 ## Task Completion Lifecycle
 
 A task can only be marked as **COMPLETE** after passing through these stages:
@@ -178,6 +184,7 @@ python -m harness.tests.test_design_agent_cycle_node
 python -m harness.tests.test_design_judgment
 python -m harness.tests.test_seo_analysis
 python -m harness.tests.test_client_proposal
+python -m harness.tests.test_prospecting
 ```
 
 ## Status

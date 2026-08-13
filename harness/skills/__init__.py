@@ -181,6 +181,21 @@ def register_client_proposal_skill():
     )
 
 
+def register_prospecting_skill():
+    """Register the prospecting skill"""
+    from harness.skills.prospecting import prospecting_skill
+
+    registry = get_skill_registry()
+
+    registry.register_skill(
+        name="prospecting",
+        description="Rank candidate websites by redesign opportunity",
+        func=prospecting_skill,
+        category="business-development",
+        version="1.0.0",
+    )
+
+
 # Auto-register test skill
 register_test_skill()
 
@@ -201,3 +216,9 @@ try:
     register_client_proposal_skill()
 except Exception:
     pass  # May fail if client_proposal module has issues
+
+# Auto-register prospecting skill
+try:
+    register_prospecting_skill()
+except Exception:
+    pass  # May fail if prospecting module has issues

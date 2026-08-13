@@ -50,6 +50,7 @@ class TestResults:
     "runtime": "Runtime",
     "seo_analysis": "SEO Analysis",
     "client_proposal": "Client Proposal",
+    "prospecting": "Prospecting",
     "design_judgment": "Design Judgment",
     "agent_cycle": "Agent Cycle",
     "agent_cycle_node": "Agent Cycle Node",
@@ -731,6 +732,12 @@ def run_all_tests():
     from harness.tests import test_client_proposal
     client_proposal_passed = test_client_proposal.run_all_tests()
     results.add("client_proposal", client_proposal_passed)
+
+    print()
+    print("--- Prospecting Tests ---")
+    from harness.tests import test_prospecting
+    prospecting_passed = test_prospecting.run_all_tests()
+    results.add("prospecting", prospecting_passed)
 
     print()
     print("--- Design Judgment Tests ---")
