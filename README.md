@@ -96,6 +96,15 @@ Built from scratch with a modular, graph-based execution engine.
   performance, SEO impact, and originality are derived from concrete pipeline
   outputs and returned in the node result.
 
+### 13. Deterministic Agent Cycle
+- **DeterministicDesignAgent**: Wraps `DesignPipelineNode` in an explicit
+  `PLAN -> EXECUTE -> OBSERVE -> EVALUATE -> DECIDE` cycle without requiring an
+  external LLM provider.
+- **Safe default**: `execute=False` performs a dry-run and returns
+  `ready_to_execute` only if planning and governance pass.
+- **Real build path**: `execute=True` writes files only after the dry-run
+  evaluation passes.
+
 ## Task Completion Lifecycle
 
 A task can only be marked as **COMPLETE** after passing through these stages:
@@ -138,6 +147,12 @@ For the current end-to-end pipeline guard, run:
 
 ```bash
 python -m harness.tests.test_design_pipeline_integration
+```
+
+For the deterministic agent-cycle guard, run:
+
+```bash
+python -m harness.tests.test_agent_cycle
 ```
 
 ## Status

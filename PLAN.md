@@ -18,6 +18,7 @@ python -m harness.tests.test_governance
 python -m harness.tests.test_runtime_fixes
 python -m harness.tests.test_memory
 python -m harness.tests.test_checkpoint_persistence
+python -m harness.tests.test_agent_cycle
 ```
 Si alguno falla, este documento está desactualizado en ese punto — confía en el
 test, actualiza el documento, no al revés.
@@ -177,12 +178,18 @@ propios que protejan esos cambios.
 
 
 
-## Fase 3 — Que el agente piense de verdad (no iniciada)
+## Fase 3 — Que el agente piense de verdad (iniciada)
 
 - [ ] Conectar `QwenAgentProvider` (`harness/agents/__init__.py`) a la API real
       — hoy `connect()`/`generate()` son placeholders, todo corre en
       `MockLLMProvider`. Instrucción ya redactada y entregada a Qwen dos veces,
       todavía no ejecutada.
+- [x] Primer ciclo agente determinístico:
+      `PLAN → EXECUTE → OBSERVE → EVALUATE → DECIDE`
+      (`harness/agents/design_cycle.py`). Corre una planificación dry-run,
+      observa etapas/gobernanza, evalúa si puede escribir y decide entre
+      `blocked`, `ready_to_execute`, `complete` o `failed`. No requiere LLM ni
+      credenciales externas todavía.
 - [x] Definir las señales reales del `GovernanceGate`
       (`brand_alignment`, `accessibility`, `visual_craft`, `performance`,
       `seo_impact`, `originality`) como salidas medibles de cada skill, no
@@ -205,8 +212,10 @@ propios que protejan esos cambios.
 - [ ] Generación de la propuesta de valor cliente-facing (antes/después,
       justificación, impacto SEO)
 - [ ] Envío por Email/Gmail/Telegram
-- [ ] Ciclo real de autonomía PLAN → EXECUTE → OBSERVE → EVALUATE → DECIDE
-      (hoy el harness es un ejecutor de pasos fijos, no un agente que decide)
+- [ ] Extender el ciclo PLAN → EXECUTE → OBSERVE → EVALUATE → DECIDE a
+      autonomía multi-iteración/client-facing. La base determinística ya
+      existe en Fase 3, pero todavía no prospecta, aprende de referencias
+      externas ni decide nuevos objetivos por sí misma.
 - [ ] Actualizar README/ARCHITECTURE.md (describen solo la V0.1 base, ya
       desactualizados frente a lo que existe hoy)
 
@@ -335,6 +344,14 @@ propios que protejan esos cambios.
   timestamps como strings ISO. Verificado con `-W error::DeprecationWarning`
   en `test_governance.py`, `test_runtime_fixes.py`, `test_memory.py` y
   `test_checkpoint_persistence.py`; batería documentada completa en verde.
+- **2026-08-13** — Fase 3 iniciada con `DeterministicDesignAgent`
+  (`harness/agents/design_cycle.py`): ciclo explícito
+  `PLAN → EXECUTE → OBSERVE → EVALUATE → DECIDE` sobre `DesignPipelineNode`.
+  El primer pase siempre es dry-run; si gobernanza o etapas fallan, decide
+  `blocked` antes de escribir; si pasa sin `execute=True`, decide
+  `ready_to_execute`; con `execute=True`, ejecuta build real y decide
+  `complete`/`failed`. Verificado: `python -m harness.tests.test_agent_cycle`
+  (3/3) y `python -m harness.tests.run_all_tests` (41/41).
 
 ---
 
@@ -344,8 +361,9 @@ propios que protejan esos cambios.
    `[x]` te falla, este documento está desactualizado — arréglalo y actualiza
    el Log, no asumas que el código está mal.
 2. Fase 2/Fase 2B ya tienen el pipeline ejecutando build real con gobernanza
-   previa a escritura. El bloqueador activo ahora está en Fase 3: pasar de
-   un pipeline fijo a un agente que decide y evalúa iterativamente.
+   previa a escritura. Fase 3 ya tiene un primer ciclo determinístico; el
+   siguiente bloqueador es conectar decisión iterativa más rica y/o proveedor
+   LLM real sin romper la ruta mock.
 3. No fusiones ninguna rama sin correr su suite de tests aislada primero
    (`git worktree add /tmp/test_X origin/rama-x` es más seguro que hacer
    checkout directo, no ensucia tu working copy).
